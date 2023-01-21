@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Untracked folders
+# Ignore BGT and project_sidewalk data folders inside res, everything included
+res/BGT/
+res/project_sidewalk/
+# Ignore unsupervised_test.ipynb file in notebooks
+notebooks/unsupervised_test.ipynb

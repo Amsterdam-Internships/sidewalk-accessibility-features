@@ -1,49 +1,27 @@
 # -*- coding: utf-8 -*-
 '''
 Reproject images from equirectangular to cubemap.
-- Credits to Tim Alpherts for the base script.
-- Partly borrowed from https://github.com/davideverona/deep-crowd-counting_crowdnet.
+Credits to Tim Alpherts for the split function.
 
 @author: Andrea Lombardo
 '''
 
-import os
-import sys
+import psutil
 
-import multiprocessing
+import re
+import os
+import concurrent.futures
+import lib.vrProjector as vrProjector
 import time
 import argparse
 
 import numpy as np
 from PIL import Image
-import lib.vrProjector as vrProjector
-from tqdm import tqdm                
-
-class Consumer(multiprocessing.Process):
-
-    def __init__(self, task_queue):
-        multiprocessing.Process.__init__(self)
-        self.task_queue = task_queue
-
-    def run(self):
-        proc_name = self.name
-        while True:
-            next_task = self.task_queue.get()
-            if next_task is None:
-                # Poison pill means shutdown
-                print('%s: Exiting' % proc_name)
-                self.task_queue.task_done()
-                break
-
-            next_task()
-            self.task_queue.task_done()
-        return
+from tqdm import tqdm     
 
 def split(args, img_path):
 
     img = os.path.join(args.input_dir, img_path)
-    # Get the pano id by removing .jpg from img_path
-    pano_id = img_path[:-4]
 
     # VrProjector the images 
     size = args.size
@@ -60,87 +38,87 @@ def split(args, img_path):
     left = Image.fromarray(np.uint8(cb.left))
 
     # make directory, with panoid as name, to save them in
-    directory = os.path.join(args.output_dir, pano_id)
+    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+    directory = os.path.join(directory, img_path)
     if not os.path.exists(directory):
             os.makedirs(directory)
     # save them in that dir
-    front.save(os.path.join(directory, 'front.jpg'))
-    right.save(os.path.join(directory, 'right.jpg'))
-    back.save(os.path.join(directory, 'back.jpg'))
-    left.save(os.path.join(directory, 'left.jpg'))
+    front.save(os.path.join(directory, 'front.png'))
+    right.save(os.path.join(directory, 'right.png'))
+    back.save(os.path.join(directory, 'back.png'))
+    left.save(os.path.join(directory, 'left.png'))
 
-    print('saved {}!'.format(pano_id))
-
-class Task(object):
-    def __init__(self, args, img_path):
-        #print('Task init')
-        self.img_path = img_path
-        self.args = args
-        
-    def __call__(self):
-        #print('Task call')
-        split(self.args, self.img_path)
-        
-        #seq_24(self.args, self.info)
-        #print('Inside call', self.info)
-        
-    def __str__(self):
-        return self.info['filename']
-
+    print('saved {}!'.format(img_path))
 
 def main(args):
+
+    # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
+    args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
+    args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+    args.input_dir = os.path.join(args.input_dir, 'reoriented')
+
+    cpu_percent_threshold = 90
+    mem_percent_threshold = 90
+    disk_percent_threshold = 90
+    # Using all the available cores for the thread pool makes the system crush,
+    # su we use only half of them
+    num_workers = int(psutil.cpu_count()/2)
+    print('Number of workers: {}'.format(num_workers))
+
+    # Define list of images in the input directory
+    img_list = os.listdir(args.input_dir)
+
+    # Limit the number of images for testing
+    # Randomly choose 100 in the list and make it a list, using the same seed for reproduction
+    np.random.seed(42)
+    img_list2 = np.random.choice(img_list, 100, replace=False).tolist()
+
+    # Create a list of tuples called inputs where each of them is composed of args and one image in img_list2
+    inputs = [(args, img) for img in img_list2]
     
-    directory = os.path.join(os.getcwd(),args.output_dir)
+    # Create the output directory if it doesn't exist
+    # Take args.input_dir, strip the last part of the path and add reprojected
+    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+
     if not os.path.exists(directory):
                 os.makedirs(directory)
-                
-    output_dir = args.output_dir
-    
-    # Establish communication queues
-    tasks = multiprocessing.JoinableQueue()
 
-    # Start consumers
-    #num_consumers = multiprocessing.cpu_count() * 2
-    #num_consumers = multiprocessing.cpu_count()
-    num_consumers = 1
-    print('Creating %d consumers' % num_consumers)
-    consumers = [Consumer(tasks) for i in range(num_consumers)]
-    for w in consumers:
-        w.start()
-
-    # Give the list of images to the Taskforce
-    img_list = os.listdir(args.input_dir)
-    
-    print('Init zip..')
-
-    for img_path in img_list:
-        print('Adding task for {}'.format(img_path))
-        tasks.put(Task(args, img_path))
-
-    # Add a poison pill for each consumer
-    for i in range(num_consumers):
-        tasks.put(None)
-
-    pbar = tqdm(total=tasks.qsize())
-
-    last_queue = tasks.qsize()
-
-    while tasks.qsize() > 0:
-        diff = last_queue - tasks.qsize()
-        pbar.update(diff)
-        last_queue = tasks.qsize()
-        time.sleep(0.2)
-
-    # Wait for all of the tasks to finish
-    tasks.join()
-
+    # Create a thread pool executor with 4 worker threads
+    # we create a list of Future object by calling executor.submit(split, x, y) for each tuple (x, y) in inputs.
+    # Then we use the concurrent.futures.as_completed(futures) function to iterate over the Future objects
+    # as they complete and retrieve the result.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = [executor.submit(split, x, y) for x, y in inputs]
+        # Use cpu_percent to monitor the CPU usage and dynamically adjust the number of workers
+        # Do the same for memory usage and disk usage
+        while True:
+            cpu_percent = psutil.cpu_percent()
+            if cpu_percent > cpu_percent_threshold:
+                num_workers -= 1
+                print('New number of workers: {}'.format(num_workers))
+                executor._max_workers = max(num_workers, 0)
+            mem_percent = psutil.virtual_memory().percent
+            if mem_percent > mem_percent_threshold:
+                num_workers -= 1
+                executor._max_workers = max(num_workers, 0)
+            disk_percent = psutil.disk_usage("/").percent
+            if disk_percent > disk_percent_threshold:
+                num_workers -= 1
+                executor._max_workers = max(num_workers, 0)
+            if all(future.done() for future in futures):
+                break
+            for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    print('%r generated an exception: %s' % (input, exc))
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
    
-    parser.add_argument('--input_dir', type=str, default = 'res/dataset/reoriented') 
-    parser.add_argument('--output_dir', type=str, default = 'res/dataset/reprojected')
+    parser.add_argument('--input_dir', type=str, default = 'res/dataset')
+    parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--size', type=int, default = 512)
     
     args = parser.parse_args()

@@ -55,6 +55,8 @@ def main(args):
 
     # Add the neighbourhood name to the path
     args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+    # Add an underscore and the quality of the images to the path
+    args.input_dir = args.input_dir + '_' + args.quality
     # Add 'reprojected' to the path
     args.input_dir = os.path.join(args.input_dir, 'reprojected')
     print(args.input_dir)
@@ -70,7 +72,6 @@ def main(args):
 
     # Define list of images in the input directory
     img_list = os.listdir(args.input_dir)
-    print(img_list)
 
     # build the model from a config file and a checkpoint file
     model = init_segmentor(args.config_file, args.checkpoint_file, device='cuda:0')
@@ -85,6 +86,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
     parser.add_argument('--neighbourhood', type=str, default='Osdorp', help='neighbourhood')
+    parser.add_argument('--quality', type=str, default='full', help='quality of the images')
     parser.add_argument('--config_file', type=str, default='lib/mmsegmentation/configs/pspnet/pspnet_r50-d8_512x1024_40k_cityscapes.py', help='config file')
     parser.add_argument('--checkpoint_file', type=str, default='lib/mmsegmentation/checkpoints/pspnet/pspnet_r50-d8_512x1024_40k_cityscapes_20200605_003338-2966598c.pth', help='checkpoint file')
 

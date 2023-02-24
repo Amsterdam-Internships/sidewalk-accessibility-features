@@ -10,6 +10,7 @@ import argparse
 import requests
 import pandas as pd
 import re
+import numpy as np
 
 # Make a dictionary with key = neighbourhood and value = bounding box
 # List of neighbourhoods can be found here: 
@@ -85,6 +86,7 @@ def get_pano_links(args):
     bbox = neighbourhoods[args.neighbourhood]
     print(f'Neighbourhood selected: {args.neighbourhood}')
     print(f'Bounding box of the neighbourhood: {bbox}')
+    print(f'Quality of the image: {args.quality}')
 
     # Get the number of panoramas in the area of interest and the bounding box coordinates
     count = get_pano_count(bbox, args.page_size, args.timestamp_after)
@@ -120,7 +122,7 @@ def get_pano_links(args):
                 continue
             else:
                 pano_ids.append(pano['pano_id'])
-                links.append(pano['_links']['equirectangular_medium']['href'])
+                links.append(pano['_links'][f'equirectangular_{args.quality}']['href'])
                 headings.append(pano['heading'])
 
 
@@ -132,34 +134,65 @@ def get_pano_links(args):
     
     return links, pano_ids, headings
 
-def save_panos(links, pano_ids, headings, args, is_sample=True):
+def save_panos(links, pano_ids, headings, args):
     '''Save the panoramas in the input directory and make a .csv file with the headings of the panoramas'''
 
     # Make a directory specific for the neighbourhood
     # Save the panoramas in the directory
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir, exist_ok=True)
 
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
     dir_path = os.path.join(args.output_dir, args.neighbourhood)
+    dir_path = dir_path + '_' + args.quality
     if not os.path.exists(dir_path):
         os.makedirs(dir_path, exist_ok=True)
 
     saved_count = 0
-    for link, pano_id in zip(links, pano_ids):
-        if is_sample:
-            if saved_count == 1000:
-                break
-        r = requests.get(link, allow_redirects=True)
-        if r.status_code == 200:
-            open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)
-            saved_count += 1
-    print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
 
-    # Save the panos with their headings to a csv file
-    data = {'pano_id': pano_ids, 'heading': headings}
+    # True if we want to test the code
+    testing = False
+
+    if (testing):
+        # For testing, randomly sample 1000 images from links
+        np.random.seed(42)
+        links_test = np.random.choice(links, 1000, replace=False)
+        # Find the indeces of the links_test in links, and use these indeces to find the corresponding pano_ids and headings
+        indeces = [links.index(link) for link in links_test]
+        pano_ids_test = [pano_ids[i] for i in indeces]
+        headings_test = [headings[i] for i in indeces]
+
+        # Sanity check: 
+        # Find the index of the 10th link in links
+        print('Index of the 10th link in links: ', links.index(links_test[10]))
+        # Find the index of the 10th pano_id in pano_ids
+        print('Index of the 10th pano_id in pano_ids: ', pano_ids.index(pano_ids_test[10]))
+        # Find the index of the 10th heading in headings
+        print('Index of the 10th heading in headings: ', headings.index(headings_test[10]))
+
+        for link, pano_id in zip(links_test, pano_ids_test):
+            r = requests.get(link, allow_redirects=True)
+            if r.status_code == 200:
+                open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)
+                saved_count += 1
+        print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
+
+        # Save the panos with their headings to a csv file
+        data = {'pano_id': pano_ids_test, 'heading': headings_test}
+    else:
+        # Save the first 2000 images
+        links_2000 = links[:2000]
+        pano_ids_2000 = pano_ids[:2000]
+
+        for link, pano_id in zip(links_2000, pano_ids_2000):
+            r = requests.get(link, allow_redirects=True)
+            if r.status_code == 200:
+                open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)
+                saved_count += 1
+        print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
+
+        # Save the panos with their headings to a csv file
+        data = {'pano_id': pano_ids, 'heading': headings}
     # The headers of the csv are: pano_id, heading
     df = pd.DataFrame(data)
     df.to_csv(dir_path + '/panos.csv', index=False)
@@ -177,7 +210,8 @@ if __name__ == '__main__':
     parser.add_argument('--neighbourhood', type=str, default='Osdorp')
     parser.add_argument('--page_size', type=int, default=10000)
     parser.add_argument('--page', type=int, default=1)
-    parser.add_argument('--timestamp_after', type=str, default='2021-01-01')    
+    parser.add_argument('--timestamp_after', type=str, default='2021-01-01')  
+    parser.add_argument('--quality', type=str, default='small')
     parser.add_argument('--output_dir', type=str, default = 'res/dataset')
     
     args = parser.parse_args()

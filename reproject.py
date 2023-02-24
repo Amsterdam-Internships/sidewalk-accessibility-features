@@ -54,27 +54,35 @@ def main(args):
 
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
+
     args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+    args.input_dir = args.input_dir + '_' + args.quality
     args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
     cpu_percent_threshold = 90
     mem_percent_threshold = 90
     disk_percent_threshold = 90
     # Using all the available cores for the thread pool makes the system crush,
-    # su we use only half of them
-    num_workers = int(psutil.cpu_count()/2)
+    # su we use only a third of them
+    #num_workers = int(psutil.cpu_count()/3)
+    num_workers = 1
     print('Number of workers: {}'.format(num_workers))
 
     # Define list of images in the input directory
     img_list = os.listdir(args.input_dir)
 
-    # Limit the number of images for testing
-    # Randomly choose 100 in the list and make it a list, using the same seed for reproduction
-    np.random.seed(42)
-    img_list2 = np.random.choice(img_list, 100, replace=False).tolist()
+    testing = False
+    if (testing):
+        # Limit the number of images for testing
+        # Randomly choose 100 in the list and make it a list, using the same seed for reproduction
+        np.random.seed(42)
+        img_list2 = np.random.choice(img_list, 100, replace=False).tolist()
 
-    # Create a list of tuples called inputs where each of them is composed of args and one image in img_list2
-    inputs = [(args, img) for img in img_list2]
+        # Create a list of tuples called inputs where each of them is composed of args and one image in img_list2
+        inputs = [(args, img) for img in img_list2]
+    else:
+        # Create a list of tuples called inputs where each of them is composed of args and one image in img_list
+        inputs = [(args, img) for img in img_list]
     
     # Create the output directory if it doesn't exist
     # Take args.input_dir, strip the last part of the path and add reprojected
@@ -119,6 +127,7 @@ if __name__ == '__main__':
    
     parser.add_argument('--input_dir', type=str, default = 'res/dataset')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
+    parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--size', type=int, default = 512)
     
     args = parser.parse_args()

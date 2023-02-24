@@ -31,8 +31,9 @@ def orient_panorama(img, heading):
 
 def orient_panoramas(args):
 
-    # Define path to .csv 
+    # Define path to .csv
     path = os.path.join(args.input_dir, args.neighbourhood)
+    path = path + '_' + args.quality
     csvpath = os.path.join(path, 'panos.csv')
     csv = pd.read_csv(csvpath)
 
@@ -63,6 +64,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
    
     parser.add_argument('--input_dir', type=str, default = 'res/dataset') 
+    parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     
     args = parser.parse_args()

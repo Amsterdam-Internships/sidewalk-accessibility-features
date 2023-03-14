@@ -18,16 +18,40 @@ from tqdm import tqdm
 
 def orient_panorama(img, heading):
     '''Credits to Tim Alpherts for the function'''
-    # Reshift panorama according to heading
-    shift = heading/360
-    pixel_split = int(img.size[0] * shift)
+
+    tolerance = 0.1
+    if abs(heading) <= tolerance:
+        return img, False
     
-    left = Image.fromarray(np.array(img)[:, pixel_split:])
-    right = Image.fromarray(np.array(img)[:, :pixel_split])
+    else:
+        
+        # Reshift panorama according to heading
+        shift = heading/360
+        pixel_split = int(img.size[0] * shift)
+        
+        try:
+            left = Image.fromarray(np.array(img)[:, pixel_split:])
+            right = Image.fromarray(np.array(img)[:, :pixel_split])
+
+            reoriented_img = np.hstack((left, right))
+            
+            return Image.fromarray(reoriented_img), True
+
+        except ValueError:
+            # Print the error message
+            print('tile cannot extend outside image')
+            print('Panorama not reoriented: ' + img.filename)
+            print('Shift: ' + str(shift))
+            print('Pixel split: ' + str(pixel_split))
+            print('Image size: ' + str(img.size))
+            print('Heading: ' + str(heading))
+            
+            return img, False
+
     
-    reoriented_img = np.hstack((left, right))
     
-    return Image.fromarray(reoriented_img)
+    
+    
 
 def orient_panoramas(args):
 
@@ -48,7 +72,16 @@ def orient_panoramas(args):
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
         heading = row['heading']
-        reoriented_img = orient_panorama(img, heading)
+        reoriented_img, bool = orient_panorama(img, heading)
+        if not (bool):
+            # Save in a .csv file the panoramas that were not reoriented
+            # Make sure to go a new line after each entry
+            neighbourhood = args.neighbourhood + '_' + args.quality
+            csv_path = os.path.join(args.input_dir, neighbourhood)
+            with open(os.path.join(csv_path, 'not_reoriented.csv'), 'a') as f:
+                f.write(img_filename + ',' + str(heading) + '\n')
+
+        # Save the image in the reoriented folder
         reoriented_img.save(folder_reoriented + '/' + img_filename, format='JPEG')
     return
 

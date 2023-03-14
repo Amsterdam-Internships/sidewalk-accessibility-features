@@ -65,11 +65,22 @@ def main(args):
     # Using all the available cores for the thread pool makes the system crush,
     # su we use only a third of them
     #num_workers = int(psutil.cpu_count()/3)
-    num_workers = 1
+    num_workers = 3
     print('Number of workers: {}'.format(num_workers))
 
     # Define list of images in the input directory
     img_list = os.listdir(args.input_dir)
+    print('Number of reoriented panos: {}'.format(len(img_list)))
+
+    # Check if we already projected images in the output directory. If so, remove them from the list
+    # Check also if there are 4 files inside the directory, if not, don't remove it from the list
+    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+    for img in img_list:
+        if os.path.exists(os.path.join(directory, img)):
+            if len(os.listdir(os.path.join(directory, img))) == 4:
+                img_list.remove(img)
+
+    print('Number of panos after filtering: {}'.format(len(img_list)))
 
     testing = False
     if (testing):

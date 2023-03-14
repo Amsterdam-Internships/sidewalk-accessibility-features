@@ -78,6 +78,8 @@ def main(args):
 
     # Create a for loop where each iteration calls segment(args, img) for each image in img_list2
     # Use tqdm to show a progress bar
+    # For testing purposes, limit the list to 1000 images
+    img_list = img_list[:1000]
     for img in tqdm(img_list):
         segment(args, img, output_directory, model)
 
@@ -86,7 +88,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
     parser.add_argument('--neighbourhood', type=str, default='Osdorp', help='neighbourhood')
-    parser.add_argument('--quality', type=str, default='full', help='quality of the images')
+    parser.add_argument('--quality', type=str, default='small', help='quality of the images')
     parser.add_argument('--config_file', type=str, default='lib/mmsegmentation/configs/pspnet/pspnet_r50-d8_512x1024_40k_cityscapes.py', help='config file')
     parser.add_argument('--checkpoint_file', type=str, default='lib/mmsegmentation/checkpoints/pspnet/pspnet_r50-d8_512x1024_40k_cityscapes_20200605_003338-2966598c.pth', help='checkpoint file')
 

@@ -12,6 +12,8 @@ import pandas as pd
 import re
 import numpy as np
 
+from tqdm import tqdm
+
 # Make a dictionary with key = neighbourhood and value = bounding box
 # List of neighbourhoods can be found here: 
 # https://maps.amsterdam.nl/open_geodata/geojson_lnglat.php?KAARTLAAG=INDELING_WIJK&THEMA=gebiedsindeling
@@ -20,8 +22,8 @@ neighbourhoods = {'Oud-West, De Baarsjes': '4.867406,52.36685,4.876809,52.37341'
 'Oud-Zuid': '4.848181, 52.342768,  4.857573, 52.356523',
 'De Pijp, Rivierenbuurt': '4.886485, 52.352231,  4.906056, 52.360232', 
 'Bijlmer-Centrum': '4.937623, 52.315024,  4.952864, 52.32814',
-'Buitenveldert, Zuidas': '4.864804, 52.341396,  4.885726, 52.346019', 
-'Centrum-West': '4.881667, 52.378766,  4.898773, 52.388692', 
+'Buitenveldert, Zuidas': '4.864804, 52.341396,  4.885726, 52.346019',
+'Centrum-West': '4.87444, 52.364925,  4.90641, 52.388692', 
 'Slotervaart': '4.818066, 52.344636,  4.834413, 52.357892', 
 'De Aker, Sloten, Nieuw-Sloten': '4.791108, 52.326928,  4.847139, 52.351746', 
 'Indische Buurt, Oostelijk Havengebied': '4.910594, 52.36655 ,  4.956709, 52.382571', 
@@ -170,7 +172,7 @@ def save_panos(links, pano_ids, headings, args):
         # Find the index of the 10th heading in headings
         print('Index of the 10th heading in headings: ', headings.index(headings_test[10]))
 
-        for link, pano_id in zip(links_test, pano_ids_test):
+        for link, pano_id in tqdm(zip(links_test, pano_ids_test)):
             r = requests.get(link, allow_redirects=True)
             if r.status_code == 200:
                 open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)
@@ -181,10 +183,10 @@ def save_panos(links, pano_ids, headings, args):
         data = {'pano_id': pano_ids_test, 'heading': headings_test}
     else:
         # Save the first 2000 images
-        links_2000 = links[:2000]
-        pano_ids_2000 = pano_ids[:2000]
+        #links_2000 = links[:2000]
+        #pano_ids_2000 = pano_ids[:2000]
 
-        for link, pano_id in zip(links_2000, pano_ids_2000):
+        for link, pano_id in zip(links, pano_ids):
             r = requests.get(link, allow_redirects=True)
             if r.status_code == 200:
                 open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)

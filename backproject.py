@@ -108,39 +108,46 @@ def backproject_masks(args, directory):
     # Print number of panos after filtering
     print('Number of panos after filtering:', len(panos))
 
-    # For testing, stop at 50 new panos
-    panos = panos[:200]
+    # For testing, stop at 3k new panos
+    panos = panos[:3000]
 
     # Make a for loop that goes through panoramas in data
     for pano in tqdm(panos):
         print('Processing panorama', pano)
         pano_path = os.path.join(args.input_dir, pano)
     
-        source = vrProjector.EquirectangularProjection()
-        source.loadImage(pano_path)
-        cb = vrProjector.CubemapProjection()
-        cb.initImages(512,512)
-        cb.reprojectToThis(source)
+        #source = vrProjector.EquirectangularProjection()
+        #source.loadImage(pano_path)
+        #cb = vrProjector.CubemapProjection()
+        #cb.initImages(512,512)
+        #cb.reprojectToThis(source)
 
         # Make a directory for the backprojected panorama
         pano_path = os.path.join(directory, pano)
         if not os.path.exists(pano_path):
             os.makedirs(pano_path)
 
-        # Retrieve bottom, top
-        bottom = Image.fromarray(np.uint8(cb.bottom))
-        top = Image.fromarray(np.uint8(cb.top))
-        # Save bottom, top
+
+        # Make bottom,top,front,back 512x512 black images
+        bottom = Image.new('RGB', (512, 512), (0, 0, 0))
+        top = Image.new('RGB', (512, 512), (0, 0, 0))
+        front = Image.new('RGB', (512, 512), (0, 0, 0))
+        back = Image.new('RGB', (512, 512), (0, 0, 0))
+        # Save them
         top_path = os.path.join(pano_path, 'top.png')
         bottom_path = os.path.join(pano_path, 'bottom.png')
+        front_path = os.path.join(pano_path, 'front.png')
+        back_path = os.path.join(pano_path, 'back.png')
 
         bottom.save(bottom_path)
         top.save(top_path)
+        front.save(front_path)
+        back.save(back_path)
 
-        reprojected_pano_path = os.path.join(os.path.dirname(args.input_dir), 'reprojected', pano)
+        #reprojected_pano_path = os.path.join(os.path.dirname(args.input_dir), 'reprojected', pano)
 
-        front_path = os.path.join(reprojected_pano_path, 'front.png')
-        back_path = os.path.join(reprojected_pano_path, 'back.png')
+        #front_path = os.path.join(reprojected_pano_path, 'front.png')
+        #back_path = os.path.join(reprojected_pano_path, 'back.png')
 
         masks_path = os.path.join(panos_path, pano)
 
@@ -153,6 +160,12 @@ def backproject_masks(args, directory):
         eq.initImage(2000,1000)
         eq.reprojectToThis(source)
         eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
+
+        # Delete the bottom,top,front,back images
+        os.remove(top_path)
+        os.remove(bottom_path)
+        os.remove(front_path)
+        os.remove(back_path)
 
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(pano_path, pano)

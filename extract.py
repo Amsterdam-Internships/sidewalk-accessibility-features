@@ -93,14 +93,6 @@ def contours(mask):
     # Convert bboxes to numpy array
     bboxes = np.array(bboxes)
 
-    '''# Visualize the bounding boxes
-    for bbox in bboxes:
-        x, y, width, height = bbox
-        cv2.rectangle(mask, (x, y), (width, height), (255, 255, 255), 2)
-
-    plt.imshow(mask, cmap='gray')
-    plt.show()'''
-
     # Sort the bounding boxes by area, in descending order
     bboxes = sorted(bboxes, key=lambda bbox: (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]), reverse=True)
 

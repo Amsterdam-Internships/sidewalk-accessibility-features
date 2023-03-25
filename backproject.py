@@ -22,6 +22,44 @@ import vrProjector as vrProjector
 from tqdm import tqdm
     
 
+def resize_masks(args, directory):
+    '''The function resizes the output masks from the model
+    to 512x512. We assume we use MOVE which outputs smaller masks.'''
+    path = os.path.join(os.path.dirname(args.input_dir), 'masks_resized')
+    directory  = os.path.join(os.path.dirname(args.input_dir), 'masks')
+
+    # Make a new directory to save the resized masks in
+    if not os.path.exists(path):
+            os.makedirs(path)
+
+    # Import all the masks in res/dataset/centrum_west_small/masks and resize them to 512x512
+    print(f'Resizing {len(os.listdir(directory))} masks...')
+    for pano in os.listdir(directory):
+        # Skip .DS_Store
+        if pano == '.DS_Store':
+            continue
+        else:
+            # Make a new directory in masks_resized
+            pano_path = os.path.join(path, pano)
+            if not os.path.exists(pano_path):
+                os.makedirs(pano_path)
+
+            # There are four masks in each pano folder: back, front, left, right. Resize them all to 512x512
+            for mask in os.listdir(os.path.join(directory, pano)):
+                mask_path = os.path.join(directory, pano, mask)
+                mask = Image.open(mask_path)
+                mask = mask.resize((512, 512))
+                # Save them in res/dataset/centrum_west_small/masks_resized
+                new_mask_path = os.path.join(path, pano)
+                # If the name of the mask is 'left.png', save it as 'left.png' in the new directory, otherwise save it as 'right.png'
+                if mask_path.endswith('left.png'):
+                    mask.save(os.path.join(new_mask_path, 'left.png'))
+                elif mask_path.endswith('right.png'):
+                    mask.save(os.path.join(new_mask_path, 'right.png'))
+                else:
+                    continue
+            
+
 '''https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset'''
 def binary_mask_to_rle(binary_mask):
     rle = {'counts': [], 'size': list(binary_mask.shape)}
@@ -216,6 +254,7 @@ def main(args):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    resize_masks(args, directory)
     backproject_masks(args, directory)
 
 if __name__ == '__main__':

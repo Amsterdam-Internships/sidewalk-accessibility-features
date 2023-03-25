@@ -132,5 +132,7 @@ dmypy.json
 # Ignore BGT and project_sidewalk data folders inside res, everything included
 res/BGT/
 res/project_sidewalk/
+res/dataset_PS
+res/dataset
 # Ignore unsupervised_test.ipynb file in notebooks
 notebooks/unsupervised_test.ipynb

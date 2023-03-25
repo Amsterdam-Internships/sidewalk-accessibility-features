@@ -109,7 +109,7 @@ def backproject_masks(args, directory):
     print('Number of panos after filtering:', len(panos))
 
     # For testing, stop at 3k new panos
-    panos = panos[:3000]
+    panos = panos[:2000]
 
     # Make a for loop that goes through panoramas in data
     for pano in tqdm(panos):
@@ -151,8 +151,16 @@ def backproject_masks(args, directory):
 
         masks_path = os.path.join(panos_path, pano)
 
+        # Load the left and right masks path. 
+        # If they don't exist, make a 512x512 black image and save it in the folder
         left_path = os.path.join(masks_path, 'left.png')
         right_path = os.path.join(masks_path, 'right.png')
+        if not os.path.exists(left_path):
+            left = Image.new('RGB', (512, 512), (0, 0, 0))
+            left.save(left_path)
+        if not os.path.exists(right_path):
+            right = Image.new('RGB', (512, 512), (0, 0, 0))
+            right.save(right_path)
     
         source = vrProjector.CubemapProjection()
         source.loadImages(front_path, right_path, back_path, left_path, top_path, bottom_path)

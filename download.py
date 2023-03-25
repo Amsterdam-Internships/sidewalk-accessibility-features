@@ -89,6 +89,7 @@ def get_pano_links(args):
     print(f'Neighbourhood selected: {args.neighbourhood}')
     print(f'Bounding box of the neighbourhood: {bbox}')
     print(f'Quality of the image: {args.quality}')
+    print(f'Timestamp after: {args.timestamp_after}')
 
     # Get the number of panoramas in the area of interest and the bounding box coordinates
     count = get_pano_count(bbox, args.page_size, args.timestamp_after)

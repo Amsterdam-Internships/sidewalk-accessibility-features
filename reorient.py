@@ -19,12 +19,13 @@ from tqdm import tqdm
 def orient_panorama(img, heading):
     '''Credits to Tim Alpherts for the function'''
 
+    # We select a tolerance of 0.1 degrees so that 
+    # the panorama is not reoriented if the heading is close to 0
     tolerance = 0.1
     if abs(heading) <= tolerance:
         return img, False
     
     else:
-        
         # Reshift panorama according to heading
         shift = heading/360
         pixel_split = int(img.size[0] * shift)
@@ -39,19 +40,10 @@ def orient_panorama(img, heading):
 
         except ValueError:
             # Print the error message
-            print('tile cannot extend outside image')
+            print('Tile cannot extend outside image')
             print('Panorama not reoriented: ' + img.filename)
-            print('Shift: ' + str(shift))
-            print('Pixel split: ' + str(pixel_split))
-            print('Image size: ' + str(img.size))
-            print('Heading: ' + str(heading))
-            
             return img, False
 
-    
-    
-    
-    
 
 def orient_panoramas(args):
 

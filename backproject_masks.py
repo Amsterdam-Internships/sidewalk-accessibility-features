@@ -60,8 +60,6 @@ def resize_masks(args, directory):
 
 
 '''https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset'''
-
-
 def binary_mask_to_rle(binary_mask):
     rle = {'counts': [], 'size': list(binary_mask.shape)}
     counts = rle.get('counts')

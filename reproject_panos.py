@@ -32,9 +32,9 @@ def split(args, img_path):
     cb.reprojectToThis(eq)
 
     # retrieve front back left right
-    front = Image.fromarray(np.uint8(cb.front))
+    #front = Image.fromarray(np.uint8(cb.front))
     right = Image.fromarray(np.uint8(cb.right))
-    back = Image.fromarray(np.uint8(cb.back))
+    #back = Image.fromarray(np.uint8(cb.back))
     left = Image.fromarray(np.uint8(cb.left))
 
     # make directory, with panoid as name, to save them in
@@ -43,9 +43,9 @@ def split(args, img_path):
     if not os.path.exists(directory):
             os.makedirs(directory)
     # save them in that dir
-    front.save(os.path.join(directory, 'front.png'))
+    #front.save(os.path.join(directory, 'front.png'))
     right.save(os.path.join(directory, 'right.png'))
-    back.save(os.path.join(directory, 'back.png'))
+    #back.save(os.path.join(directory, 'back.png'))
     left.save(os.path.join(directory, 'left.png'))
 
     print('saved {}!'.format(img_path))

@@ -1,4 +1,5 @@
-'''Evaluate the predictions by comparing them to Project Sidewalk's (PS) ground truth labels.'''
+'''Evaluate the predictions by comparing them to Project Sidewalk's (PS) ground truth
+labels. Run this script after backproject_masks.py.'''
 
 import os
 import pandas as pd
@@ -14,6 +15,7 @@ def evaluate(args, directory):
     # EPSG:4326, the WGS84 coordinate system
 
     predictions_path = os.path.join(args.input_dir, 'object_locations.csv')
+    
     base_url = 'https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?' + \
 'lat1={}&lng1={}&lat2={}&lng2={}'
 

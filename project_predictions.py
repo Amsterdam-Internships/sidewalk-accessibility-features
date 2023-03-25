@@ -1,4 +1,4 @@
-'''Script that runs after backproject.py. The actions it performs are:
+'''Script that runs after backproject.py. It performs the following actions:
 1. Select panos that have obstacles labels from Project Sidewalk
 2. Perform triangulation of the masks
 3, Visualize both PS and prediction points in the map
@@ -215,11 +215,6 @@ def final_projection(input_file):
             lat = pano_lat + math.degrees(vertical_angle)
             long = pano_long + math.degrees(horizontal_angle) / math.cos(math.radians(pano_lat))
 
-
-            # Print the lat/long coordinates
-            #print("Latitude of the object: ", lat)
-            #print("Longitude of the object: ", long)
-
             # Add the lat and long to the object_info list
             object_info.append([pano_id, lat, long])
 
@@ -281,57 +276,6 @@ def project(args, panos, output_file):
     
         tr.write_output(output_file, cluster_intersections)
 
-def map(ps_labels, output_file):
-    hmap = folium.Map(location=[52.3676, 4.90], zoom_start=12, tiles='stamentoner',)
-
-    od_labels_path = pd.read_csv(output_file)
-    # Convert od_labels_path to a geopandas dataframe
-    od_labels = gpd.GeoDataFrame(od_labels_path, geometry=gpd.points_from_xy(od_labels_path.lon, od_labels_path.lat))
-
-    print('Number of PS labels before filtering per panos: {}'.format(len(ps_labels)))
-    # Filter ps_labels so that it only contains labels where "gsv_panorama_id" is in the list of pano_ids in od_labels
-    ps_labels = ps_labels[ps_labels["gsv_panorama_id"].isin(od_labels["pano_id"])]
-    print('Number of PS labels after filtering per panos: {}'.format(len(ps_labels)))
-    # Each row of ps_labels_df contains the column "geometry", where the coordinates are stored as a POINT(x y). We want
-    # to extract the x and y coordinates from this column, and add them to the map as a CircleMarker
-    ps_labels.apply(lambda row:folium.CircleMarker(location=[row["geometry"].y, row["geometry"].x], radius=2, color='red').add_to(hmap), axis=1)
-
-    # Add od_labels_df to the map
-    od_labels.apply(lambda row:folium.CircleMarker(location=[row["lat"], row["lon"]], radius=2, color='blue').add_to(hmap), axis=1)
-
-    # Save the hmap as a high resolution image
-    hmap.save('res/dataset_PS/centrum_west_small/heatmap.html')
-
-def compute_metrics(ps_labels_df, output_file):
-
-    od_labels_path = pd.read_csv(output_file)
-    # Convert od_labels_path to a geopandas dataframe
-    od_labels_df = gpd.GeoDataFrame(od_labels_path, geometry=gpd.points_from_xy(od_labels_path.lon, od_labels_path.lat))
-
-    # create a circle buffer of 1 meter around the points in ps_labels_df
-    buffer_distance = 1 # meters    
-    gpd_ps_labels_df = gpd.GeoDataFrame(geometry=ps_labels_df.geometry.buffer(buffer_distance))
-
-    od_labels_df = od_labels_df.reset_index(drop=True)
-    gpd_ps_labels_df = gpd_ps_labels_df.reset_index(drop=True)
-    # join the two dataframes based on the points that intersect the buffered points in ps_labels_buffered
-    joined_df = gpd.sjoin(od_labels_df, gpd_ps_labels_df, how='inner', op='intersects')
-
-    # calculate the true positives (TP), false positives (FP), and false negatives (FN)
-    TP = joined_df.intersects(gpd_ps_labels_df).sum()
-    FP = len(joined_df) - TP
-    FN = len(gpd_ps_labels_df) - TP
-
-    # calculate the accuracy, precision, and recall
-    accuracy = TP / (TP + FP + FN)
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
-
-    print('Accuracy: {}'.format(accuracy))
-    print('Precision: {}'.format(precision))
-    print('Recall: {}'.format(recall))
-
-
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
@@ -339,22 +283,14 @@ def main(args):
     args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
     args.input_dir = args.input_dir + '_' + args.quality
     args.input_dir = os.path.join(args.input_dir, 'backprojected')
-
     
     ps_labels = api_call()
     ps_labels, panos = filter_panos(ps_labels)
 
-    # Perform triangulation and project predictions to GSV coordinates
-    #project(args, panos)
-
     output_file = os.path.join(args.input_dir, "object_locations.csv")
 
-    # Visualize points in the map and save it as a .html file
-    map(ps_labels, output_file)
-
-    # TODO: Compute metrics
-    compute_metrics(ps_labels, output_file)
-
+    # Perform triangulation and project predictions to GSV coordinates
+    project(args, panos, output_file)
 
 if __name__ == '__main__':
 

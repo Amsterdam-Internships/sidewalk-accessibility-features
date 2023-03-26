@@ -99,12 +99,12 @@ def evaluate(args, directory):
 
     return ps_labels_df, od_labels_df
 
-def map(ps_labels, od_labels):
+def map(ps_labels, od_labels, directory):
     # Map the PS labels and OD labels
     hmap = folium.Map(location=[52.3676, 4.90], zoom_start=12, tiles='stamentoner',)
 
-    # Use apply to iterate over each polygon in the GeoDataFrame
-    ps_labels.apply(lambda row: folium.GeoJson(row.geometry.__geo_interface__).add_to(hmap), axis=1)
+    # Use apply to iterate over each polygon in the GeoDataFrame, apply blue color
+    ps_labels.apply(lambda row: folium.GeoJson(row.geometry.__geo_interface__, style_function=lambda x: {'color': 'red'}).add_to(hmap), axis=1)
 
     # Use apply to iterate over each polygon in the GeoDataFrame again
     ps_labels.apply(lambda row: folium.CircleMarker(location=row.geometry.centroid.coords[0][::-1], radius=2, color='red').add_to(hmap), axis=1)    
@@ -112,8 +112,9 @@ def map(ps_labels, od_labels):
     od_labels.apply(lambda row:folium.CircleMarker(location=[row["lat"], row["lon"]], radius=2, color='blue').add_to(hmap), axis=1)
 
     # Save the hmap as a high resolution image
-    hmap.save('res/dataset_PS/centrum_west_small/heatmap.html')
-    print('Map saved.')
+    hmap_path = os.path.join(directory, 'heatmap' + f'_{args.buffer_distance}m' + '.html')
+    hmap.save(hmap_path)
+    print(f'Map saved in {hmap_path}.')
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
@@ -130,7 +131,7 @@ def main(args):
         os.makedirs(directory)
 
     ps_labels, od_labels = evaluate(args, directory)
-    map(ps_labels, od_labels)
+    map(ps_labels, od_labels, directory)
 
 if __name__ == '__main__':
 

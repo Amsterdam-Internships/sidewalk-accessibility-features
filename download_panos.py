@@ -107,6 +107,7 @@ def get_pano_links(args):
     pano_ids = []
     links = []
     headings = []
+    coords = []
     for page in range(1, pages+1):
         print('Collecting panos of page ', page)
         # API url
@@ -127,6 +128,7 @@ def get_pano_links(args):
                 pano_ids.append(pano['pano_id'])
                 links.append(pano['_links'][f'equirectangular_{args.quality}']['href'])
                 headings.append(pano['heading'])
+                coords.append(pano['geometry']['coordinates'])
 
 
         print('Number of links: ', len(links))
@@ -134,10 +136,11 @@ def get_pano_links(args):
     # Assert if the number of links is equal to the number of panoramas and headings
     assert len(links) == len(pano_ids)
     assert len(links) == len(headings)
+    assert len(links) == len(coords)
     
-    return links, pano_ids, headings
+    return links, pano_ids, headings, coords
 
-def save_panos(links, pano_ids, headings, args):
+def save_panos(links, pano_ids, headings, coords, args):
     '''Save the panoramas in the input directory and make a .csv file with the headings of the panoramas'''
 
     # Make a directory specific for the neighbourhood
@@ -195,7 +198,7 @@ def save_panos(links, pano_ids, headings, args):
         print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
 
         # Save the panos with their headings to a csv file
-        data = {'pano_id': pano_ids, 'heading': headings}
+        data = {'pano_id': pano_ids, 'heading': headings, 'coords': coords}
     # The headers of the csv are: pano_id, heading
     df = pd.DataFrame(data)
     df.to_csv(dir_path + '/panos.csv', index=False)
@@ -203,8 +206,8 @@ def save_panos(links, pano_ids, headings, args):
 def main(args):
 
     '''Main function to collect the panoramas'''
-    links, panos_id, headings = get_pano_links(args)
-    save_panos(links, panos_id, headings, args)
+    links, panos_id, headings, coords = get_pano_links(args)
+    save_panos(links, panos_id, headings, coords, args)
 
 if __name__ == '__main__':
 
@@ -212,7 +215,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--neighbourhood', type=str, default='Osdorp')
     parser.add_argument('--page_size', type=int, default=10000)
-    parser.add_argument('--page', type=int, default=1)
     parser.add_argument('--timestamp_after', type=str, default='2021-01-01')  
     parser.add_argument('--quality', type=str, default='small')
     parser.add_argument('--output_dir', type=str, default = 'res/dataset')

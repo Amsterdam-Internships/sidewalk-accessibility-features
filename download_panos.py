@@ -50,7 +50,7 @@ def convert_bbox(bbox):
     bounds = tuple(map(float, bbox.split(',')))
     return bounds
 
-def get_pano_count(bbox, page_size, timestamp_after):
+def get_pano_count(bbox, page_size, timestamp_after, projection):
     '''Method to get the number of panoramas in the area of interest.
     This is useful to know how many pages we need to loop through to get all the panoramas.'''
     
@@ -59,7 +59,7 @@ def get_pano_count(bbox, page_size, timestamp_after):
     # API url
     url = (
     f"https://api.data.amsterdam.nl/panorama/panoramas/?format=json&page_size={page_size}" 
-    f"&page=1&srid=4326&bbox={bounds[0]},{bounds[1]},{bounds[2]},{bounds[3]}&timestamp_after={timestamp_after}" 
+    f"&page=1&srid={projection}&bbox={bounds[0]},{bounds[1]},{bounds[2]},{bounds[3]}&timestamp_after={timestamp_after}" 
     )
 
     test_api = requests.get(url).json()
@@ -90,9 +90,10 @@ def get_pano_links(args):
     print(f'Bounding box of the neighbourhood: {bbox}')
     print(f'Quality of the image: {args.quality}')
     print(f'Timestamp after: {args.timestamp_after}')
+    print(f'Projection of coordinates: {args.projection}')
 
     # Get the number of panoramas in the area of interest and the bounding box coordinates
-    count = get_pano_count(bbox, args.page_size, args.timestamp_after)
+    count = get_pano_count(bbox, args.page_size, args.timestamp_after, args.projection)
     print('Number of panoramas: ', count)
     
     # Bounding box coordinates for the area of interest
@@ -108,6 +109,7 @@ def get_pano_links(args):
     links = []
     headings = []
     coords = []
+    mission_years = []
     for page in range(1, pages+1):
         print('Collecting panos of page ', page)
         # API url
@@ -129,6 +131,7 @@ def get_pano_links(args):
                 links.append(pano['_links'][f'equirectangular_{args.quality}']['href'])
                 headings.append(pano['heading'])
                 coords.append(pano['geometry']['coordinates'])
+                mission_years.append(pano['mission_year'])
 
 
         print('Number of links: ', len(links))
@@ -137,10 +140,11 @@ def get_pano_links(args):
     assert len(links) == len(pano_ids)
     assert len(links) == len(headings)
     assert len(links) == len(coords)
+    assert len(links) == len(mission_years)
     
-    return links, pano_ids, headings, coords
+    return links, pano_ids, headings, coords, mission_years
 
-def save_panos(links, pano_ids, headings, coords, args):
+def save_panos(links, pano_ids, headings, coords, mission_years, args):
     '''Save the panoramas in the input directory and make a .csv file with the headings of the panoramas'''
 
     # Make a directory specific for the neighbourhood
@@ -184,13 +188,14 @@ def save_panos(links, pano_ids, headings, coords, args):
         print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
 
         # Save the panos with their headings to a csv file
-        data = {'pano_id': pano_ids_test, 'heading': headings_test}
+        data = {'pano_id': pano_ids_test, 'heading': headings_test, 'coords': coords,
+                 'mission_year': mission_years}
     else:
         # Save the first 2000 images
         #links_2000 = links[:2000]
         #pano_ids_2000 = pano_ids[:2000]
 
-        for link, pano_id in zip(links, pano_ids):
+        for link, pano_id in tqdm(zip(links, pano_ids)):
             r = requests.get(link, allow_redirects=True)
             if r.status_code == 200:
                 open(f'{dir_path}/{pano_id}.jpg', 'wb').write(r.content)
@@ -198,16 +203,16 @@ def save_panos(links, pano_ids, headings, coords, args):
         print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
 
         # Save the panos with their headings to a csv file
-        data = {'pano_id': pano_ids, 'heading': headings, 'coords': coords}
-    # The headers of the csv are: pano_id, heading
+        data = {'pano_id': pano_ids, 'heading': headings, 'coords': coords, 'mission_year': mission_years}
+    # The headers of the csv are: pano_id, heading, coords, mission_year
     df = pd.DataFrame(data)
     df.to_csv(dir_path + '/panos.csv', index=False)
 
 def main(args):
 
     '''Main function to collect the panoramas'''
-    links, panos_id, headings, coords = get_pano_links(args)
-    save_panos(links, panos_id, headings, coords, args)
+    links, panos_id, headings, coords, mission_years = get_pano_links(args)
+    save_panos(links, panos_id, headings, coords, mission_years, args)
 
 if __name__ == '__main__':
 
@@ -215,9 +220,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--neighbourhood', type=str, default='Osdorp')
     parser.add_argument('--page_size', type=int, default=10000)
-    parser.add_argument('--timestamp_after', type=str, default='2021-01-01')  
+    parser.add_argument('--timestamp_after', type=str, default='2023-01-01')  
     parser.add_argument('--quality', type=str, default='small')
     parser.add_argument('--output_dir', type=str, default = 'res/dataset')
+    parser.add_argument('--projection', type=str, default='4326')
     
     args = parser.parse_args()
     

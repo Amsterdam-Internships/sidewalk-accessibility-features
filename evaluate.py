@@ -101,9 +101,10 @@ def evaluate(args, directory):
 
 def map(ps_labels, od_labels, directory):
     # Map the PS labels and OD labels
-    hmap = folium.Map(location=[52.3676, 4.90], zoom_start=12, tiles='stamentoner',)
+    hmap = folium.Map(location=[52.3676, 4.90], zoom_start=12, tiles='cartodbpositron',)
 
-    # Use apply to iterate over each polygon in the GeoDataFrame, apply blue color
+    # Use apply to iterate over each polygon in the GeoDataFrame.
+    # For the color, if od_labels are inside folium.GeoJson, color is green, else red
     ps_labels.apply(lambda row: folium.GeoJson(row.geometry.__geo_interface__, style_function=lambda x: {'color': 'red'}).add_to(hmap), axis=1)
 
     # Use apply to iterate over each polygon in the GeoDataFrame again

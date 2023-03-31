@@ -75,6 +75,10 @@ def orient_panoramas(args):
 
         # Save the image in the reoriented folder
         reoriented_img.save(folder_reoriented + '/' + img_filename, format='JPEG')
+        # Cancel the original image with name "img_filename" and path "path"
+        os.remove(os.path.join(path, img_filename) + '.jpg')
+
+
     return
 
 def main(args):

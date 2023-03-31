@@ -133,9 +133,6 @@ def get_pano_links(args):
                 coords.append(pano['geometry']['coordinates'])
                 mission_years.append(pano['mission_year'])
 
-
-        print('Number of links: ', len(links))
-
     # Assert if the number of links is equal to the number of panoramas and headings
     assert len(links) == len(pano_ids)
     assert len(links) == len(headings)
@@ -164,6 +161,7 @@ def save_panos(links, pano_ids, headings, coords, mission_years, args):
     testing = False
 
     if (testing):
+        print('Testing the code')
         # For testing, randomly sample 1000 images from links
         np.random.seed(42)
         links_test = np.random.choice(links, 1000, replace=False)
@@ -171,6 +169,12 @@ def save_panos(links, pano_ids, headings, coords, mission_years, args):
         indeces = [links.index(link) for link in links_test]
         pano_ids_test = [pano_ids[i] for i in indeces]
         headings_test = [headings[i] for i in indeces]
+        coords_test = [coords[i] for i in indeces]
+        mission_years_test = [mission_years[i] for i in indeces]
+        
+        print('Number of indices: ', len(indeces))
+        print('Number of pano_tests: ', len(pano_ids_test))
+        print('Number of mission_years_test: ', len(mission_years_test))
 
         # Sanity check: 
         # Find the index of the 10th link in links
@@ -179,6 +183,10 @@ def save_panos(links, pano_ids, headings, coords, mission_years, args):
         print('Index of the 10th pano_id in pano_ids: ', pano_ids.index(pano_ids_test[10]))
         # Find the index of the 10th heading in headings
         print('Index of the 10th heading in headings: ', headings.index(headings_test[10]))
+        # Find the index of the 10th coords in coords
+        print('Index of the 10th coords in coords: ', coords.index(coords_test[10]))
+        # Find the index of the 10th mission_year in mission_years
+        print('Index of the 10th mission_year in mission_years: ', mission_years.index(mission_years_test[10]))
 
         for link, pano_id in tqdm(zip(links_test, pano_ids_test)):
             r = requests.get(link, allow_redirects=True)
@@ -188,8 +196,8 @@ def save_panos(links, pano_ids, headings, coords, mission_years, args):
         print(f'Number of panoramas saved: {saved_count} out of {len(links)}')
 
         # Save the panos with their headings to a csv file
-        data = {'pano_id': pano_ids_test, 'heading': headings_test, 'coords': coords,
-                 'mission_year': mission_years}
+        data = {'pano_id': pano_ids_test, 'heading': headings_test, 'coords': coords_test,
+                 'mission_year': mission_years_test}
     else:
         # Save the first 2000 images
         #links_2000 = links[:2000]

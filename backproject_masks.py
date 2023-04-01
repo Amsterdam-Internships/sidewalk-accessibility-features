@@ -1,12 +1,14 @@
 '''Backproject the bounding boxes found in the left and right images to the equirectangular
 panoramic image, preparing them as input for the triangulation algorithm.'''
+import sys
+sys.path.append("lib")
 
 from tqdm import tqdm
 import vrProjector as vrProjector
 import argparse
 import os
 import re
-import sys
+
 import json
 import pycocotools.mask as mask_util
 from pycocotools import mask
@@ -18,7 +20,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 import numpy as np
-sys.path.append("lib")
+
 
 
 def resize_masks(args, directory):
@@ -33,7 +35,7 @@ def resize_masks(args, directory):
 
     # Import all the masks in res/dataset/centrum_west_small/masks and resize them to 512x512
     print(f'Resizing {len(os.listdir(directory))} masks...')
-    for pano in os.listdir(directory):
+    for pano in tqdm(os.listdir(directory)):
         # Skip .DS_Store
         if pano == '.DS_Store':
             continue
@@ -55,8 +57,10 @@ def resize_masks(args, directory):
                     mask.save(os.path.join(new_mask_path, 'left.png'))
                 elif mask_path.endswith('right.png'):
                     mask.save(os.path.join(new_mask_path, 'right.png'))
-                else:
-                    continue
+                elif mask_path.endswith('front.png'):
+                    mask.save(os.path.join(new_mask_path, 'front.png'))
+                elif mask_path.endswith('back.png'):
+                    mask.save(os.path.join(new_mask_path, 'back.png'))
 
 
 '''https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset'''
@@ -85,6 +89,7 @@ def find_masks(pano_path, pano):
     # The idea is to use the image equirectangular.png in res/ and the colors HSV
     # (yellow: 57.9, 100, 100) and (blue: 240, 100, 100)
     # to define the left and right face cubemap images corresponding to the equirectangular image.
+    # We do the same for the front and back, using the colors HSV (red: 0, 100, 100) and (green: 120, 100, 100)
     pano_mask = np.array(Image.open('res/equirectangular.png'))
     # Resize it to 2000x1000
     pano_mask = cv2.resize(pano_mask, (2000, 1000))
@@ -93,10 +98,16 @@ def find_masks(pano_path, pano):
     yellow_rgb = np.array([255, 246, 0])
     # Define the RGB values for blue
     blue_rgb = np.array([0, 0, 255])
+    # Define the RGB values for red
+    red_rgb = np.array([255, 0, 0])
+    # Define the RGB values for green
+    green_rgb = np.array([0, 255, 0])
     # Convert it to HSV
     yellow_hsv = cv2.cvtColor(
         np.uint8([[yellow_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
     blue_hsv = cv2.cvtColor(np.uint8([[blue_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
+    red_hsv = cv2.cvtColor(np.uint8([[red_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
+    green_hsv = cv2.cvtColor(np.uint8([[green_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
 
     # Threshold the image based on the HSV values
     yellow_lower = np.array([yellow_hsv[0] - 10, yellow_hsv[1], yellow_hsv[2]])
@@ -108,12 +119,26 @@ def find_masks(pano_path, pano):
     blue_upper = np.array([blue_hsv[0] + 10, 255, 255])
     blue_mask = cv2.inRange(cv2.cvtColor(
         pano_mask, cv2.COLOR_RGB2HSV), blue_lower, blue_upper)
+    
+    red_lower = np.array([red_hsv[0] - 10, red_hsv[1], red_hsv[2]])
+    red_upper = np.array([red_hsv[0] + 10, 255, 255])
+    red_mask = cv2.inRange(cv2.cvtColor(
+        pano_mask, cv2.COLOR_RGB2HSV), red_lower, red_upper)
+    
+    green_lower = np.array([green_hsv[0] - 10, green_hsv[1], green_hsv[2]])
+    green_upper = np.array([green_hsv[0] + 10, 255, 255])
+    green_mask = cv2.inRange(cv2.cvtColor(
+        pano_mask, cv2.COLOR_RGB2HSV), green_lower, green_upper)
 
     # Fill any small holes inside the masks
     yellow_mask = cv2.morphologyEx(
         yellow_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
     blue_mask = cv2.morphologyEx(
         blue_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    red_mask = cv2.morphologyEx(
+        red_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    green_mask = cv2.morphologyEx(
+        green_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
 
     # Load the image
     img = cv2.imread(os.path.join(pano_path, pano) + '.png')
@@ -126,7 +151,15 @@ def find_masks(pano_path, pano):
     right_image_mask = img.copy()
     right_image_mask[blue_mask != 255] = 0
 
-    return [left_image_mask, right_image_mask]
+    # Convert all the image (img) but the pixels corresponding to the red_mask locations to black
+    front_image_mask = img.copy()
+    front_image_mask[red_mask != 255] = 0
+
+    # Convert all the image (img) but the pixels corresponding to the green_mask locations to black
+    back_image_mask = img.copy()
+    back_image_mask[green_mask != 255] = 0
+
+    return [left_image_mask, right_image_mask, front_image_mask, back_image_mask]
 
 
 def backproject_masks(args, directory):
@@ -195,16 +228,24 @@ def backproject_masks(args, directory):
 
         masks_path = os.path.join(panos_path, pano)
 
-        # Load the left and right masks path.
+        # Load the left, right, front, back masks path.
         # If they don't exist, make a 512x512 black image and save it in the folder
         left_path = os.path.join(masks_path, 'left.png')
         right_path = os.path.join(masks_path, 'right.png')
+        front_path = os.path.join(masks_path, 'front.png')
+        back_path = os.path.join(masks_path, 'back.png')
         if not os.path.exists(left_path):
             left = Image.new('RGB', (512, 512), (0, 0, 0))
             left.save(left_path)
         if not os.path.exists(right_path):
             right = Image.new('RGB', (512, 512), (0, 0, 0))
             right.save(right_path)
+        if not os.path.exists(front_path):
+            front = Image.new('RGB', (512, 512), (0, 0, 0))
+            front.save(front_path)
+        if not os.path.exists(back_path):
+            back = Image.new('RGB', (512, 512), (0, 0, 0))
+            back.save(back_path)
 
         source = vrProjector.CubemapProjection()
         source.loadImages(front_path, right_path, back_path,
@@ -215,10 +256,10 @@ def backproject_masks(args, directory):
         eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
 
         # Delete the bottom,top,front,back images
-        os.remove(top_path)
-        os.remove(bottom_path)
-        os.remove(front_path)
-        os.remove(back_path)
+        #os.remove(top_path)
+        #os.remove(bottom_path)
+        #os.remove(front_path)
+        #os.remove(back_path)
 
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(pano_path, pano)

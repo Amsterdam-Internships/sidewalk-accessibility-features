@@ -187,7 +187,7 @@ def backproject_masks(args, directory):
     print('Number of panos after filtering:', len(panos))
 
     # For testing, stop at 3k new panos
-    panos = panos[:2000]
+    #panos = panos[:100]
 
     # Make a for loop that goes through panoramas in data
     for pano in tqdm(panos):
@@ -303,7 +303,7 @@ def main(args):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    resize_masks(args, directory)
+    #resize_masks(args, directory)
     backproject_masks(args, directory)
 
 

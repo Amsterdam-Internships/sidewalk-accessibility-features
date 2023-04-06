@@ -90,7 +90,7 @@ def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_in
         ax.legend()
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
     fig.savefig(os.path.join(path, f'{pano_id}_mask.png'), dpi=300, bbox_inches='tight')
 
@@ -124,12 +124,16 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
         ax.legend()
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}_mask_iou.png'), dpi=300, bbox_inches='tight')
 
-def compute_label_coordinates(dataframe, pano_id):
+def compute_label_coordinates(args, dataframe, pano_id):
+
+    # Load pano
+    image_path = os.path.join(args.input_dir,pano_id)
+    image = plt.imread(image_path)
 
     # Find all the labels in the panorama
     labels = dataframe[dataframe['gsv_panorama_id'] == pano_id]
@@ -388,6 +392,66 @@ def average_precision_iou(best_ious, gt_points, threshold):
 
     return ap
 
+def evaluate_single_batch(args, batch, other_labels_df, directory):
+    panos = {}
+    for instance in batch:
+        pano_id = instance['pano_id'].replace(".jpg", "")
+        mask = mask_util.decode(instance['segmentation'])
+        if pano_id not in panos:
+            panos[pano_id] = []
+        panos[pano_id].append(mask)
+
+    for pano in tqdm(panos):
+        '''Assumptions: there is one ground truth for each mask, 
+        and the order of the masks is the same as the order of the ground truth indices.'''
+        if pano in other_labels_df["gsv_panorama_id"].values:
+            print(f'\nPano: {pano}')
+            pred_masks = panos[pano]
+            # Compute label coordinates for pano
+            gt_points = compute_label_coordinates(args, other_labels_df, pano)
+            n_masks = len(panos[pano])
+            # Compute metrics
+            # Metrics 1: (average) mask-to-point distance
+            distances, closest_points, gt_indices = mask_to_point_distance(gt_points, pred_masks)
+            mean_distance = np.mean(distances) # mean between all masks and points
+            # Metrics 2: point-to-mask best IoU
+            best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
+            mean_ious = np.mean(best_ious)
+            # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
+            precision, recall, f1 = precision_recall_f1(distances, gt_indices, args.threshold)
+            # Metrics 4: Average precision based on point-to-mask distance
+            ap = average_precision(distances, gt_indices, args.threshold)
+            # Metrics 5: Average precision @50 and @75 based on IoU
+            # Print best ious with 3 decimals, considering that it's a list of numbers
+            ap_50 = average_precision_iou(best_ious, gt_points, threshold=0.5)
+            ap_75 = average_precision_iou(best_ious, gt_points, threshold=0.75)
+
+            if args.visualize:
+                # Probability of visualization: 1% of the panos
+                if random.random() > 0.01:
+                    continue
+                else:
+                    visualization_path = os.path.join(os.path.dirname(args.input_dir), 'visualized')
+                    print(f'Visualization of pano {pano} with threshold=', args.threshold, ' and radius=', args.radius, '')
+                    # Make a folder 'visualized' if not present
+                    if not os.path.exists(visualization_path):
+                        os.makedirs(visualization_path)
+                    visualize_labels(args, gt_points, pano, visualization_path) # visualize labels and masks on pano
+                    visualize_debug_mask(gt_points, pred_masks, distances, \
+                                        closest_points, gt_indices, pano, visualization_path) # metrics 1
+                    visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, \
+                                            pano, visualization_path) # metrics 2
+                    
+            '''# Save metrics to .csv file, adding as first column the panorama ID. Add header
+            metrics = [pano, mean_distance, mean_ious, precision, recall, f1, ap, ap_50, ap_75]
+            with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
+                writer = csv.writer(f)
+                # If the first row contains the header, don't write it again
+                if os.stat(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv')).st_size == 0:
+                    writer.writerow(['pano_id', 'avg_distance', 'avg_iou', 'precision', \
+                                      'recall', 'f1', 'ap', 'ap50', 'ap75'])
+                writer.writerow(metrics)'''
+
 def evaluate(args, directory):
 
     # Get Project Sidewalk labels from API
@@ -411,97 +475,35 @@ def evaluate(args, directory):
     # The structure of data is a list of dictionaries, with instance['pano_id'] as the panorama ID
     # and instance['segmentation'] as the corresponding masks. Make a dictionary of masks with
     # the panorama ID as the key and a list of masks as value.
-    panos = {}
-    for instance in data[50:80]:
-        pano_id = instance['pano_id'].replace(".jpg", "")
-        mask = mask_util.decode(instance['segmentation'])
-        if pano_id not in panos:
-            panos[pano_id] = []
-        panos[pano_id].append(mask)
+    data = np.array_split(data, 200)
+    print('Length of data: ', len(data))
+    print('Length of each data batch: ', len(data[0]))
 
-    avg_distance = []
-    avg_iou = []
-    avg_precision = []
-    avg_recall = []
-    avg_f1 = []
-    avg_ap = []
-    avg_ap50 = []
-    avg_ap75 = []
+    for data_batch in tqdm(data):
+        # Check if cpu can handle the batch
+        evaluate_single_batch(args, data_batch, other_labels_df, directory)
+            
+    # Open the .csv file, make it a dataframe, calculate the average of each column,
+    # and save it to a new .csv file
+    metrics_df = pd.read_csv(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'))
+    avg_distance = np.mean(metrics_df['avg_distance'].values)
+    avg_iou = np.mean(metrics_df['avg_iou'].values)
+    avg_precision = np.mean(metrics_df['precision'].values)
+    avg_recall = np.mean(metrics_df['recall'].values)
+    avg_f1 = np.mean(metrics_df['f1'].values)
+    avg_ap = np.mean(metrics_df['ap'].values)
+    avg_ap50 = np.mean(metrics_df['ap50'].values)
+    avg_ap75 = np.mean(metrics_df['ap75'].values)
 
-    for pano in tqdm(panos):
-        '''Assumptions: there is one ground truth for each mask, 
-        and the order of the masks is the same as the order of the ground truth indices.'''
-        if pano in other_labels_df["gsv_panorama_id"].values:
-            print(f'Pano: {pano}')
-            pred_masks = panos[pano]
-            # Compute label coordinates for pano
-            gt_points = compute_label_coordinates(other_labels_df, pano)
-            n_masks = len(panos[pano])
-            # Compute metrics
-            # Metrics 1: (average) mask-to-point distance
-            distances, closest_points, gt_indices = mask_to_point_distance(gt_points, pred_masks)
-            mean_distance = np.mean(distances) # mean between all masks and points
-            # Metrics 2: point-to-mask best IoU
-            best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
-            mean_ious = np.mean(best_ious)
-            # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
-            precision, recall, f1 = precision_recall_f1(distances, gt_indices, args.threshold)
-            # Metrics 4: Average precision based on point-to-mask distance
-            ap = average_precision(distances, gt_indices, args.threshold)
-            # Metrics 5: Average precision @50 and @75 based on IoU
-            # Print best ious with 3 decimals, considering that it's a list of numbers
-            ap_50 = average_precision_iou(best_ious, gt_points, threshold=0.5)
-            ap_75 = average_precision_iou(best_ious, gt_points, threshold=0.75)
-            # We can't do mAP because at the moment there is only one class (obstacles)
-
-            '''# Print all the metrics in a pretty way
-            print(f"\n")
-            print(f"==== Printing metrics for pano {pano}: ====")
-            print(f"Average point-to-mask distance: {avg_distance:.3f}")
-            print(f"Average best IoU: {avg_ious:.3f}")
-            print(f"== Distance-based metrics, threshold: 100 ==")
-            print(f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1: {f1:.3f}")
-            print(f"Average Precision: {ap:.3f}")
-            print(f"== IoU-based metrics, threshold: 0.5 ==")
-            print(f"Average Precision @50 (IoU): {ap_50:.3f}")
-            print(f"Average Precision @75 (IoU): {ap_75:.3f}")'''
-
-            if args.visualize:
-                # Probability of visualization: 1% of the panos
-                if random.random() > 0.01:
-                    continue
-                else:
-                    visualization_path = os.path.join(os.path.dirname(args.input_dir), 'visualized')
-                    print(f'Visualization of pano {pano} with threshold=', args.threshold, ' and radius=', args.radius, '')
-                    # Make a folder 'visualized' if not present
-                    if not os.path.exists(visualization_path):
-                        os.makedirs(visualization_path)
-                    visualize_labels(args, gt_points, pano_id, visualization_path) # visualize labels and masks on pano
-                    visualize_debug_mask(gt_points, pred_masks, distances, \
-                                        closest_points, gt_indices, pano, visualization_path) # metrics 1
-                    visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, \
-                                            pano, visualization_path) # metrics 2
-
-            # Append metrics to lists
-            avg_distance.append(mean_distance)
-            avg_iou.append(mean_ious)
-            avg_precision.append(precision)
-            avg_recall.append(recall)
-            avg_f1.append(f1)
-            avg_ap.append(ap)
-            avg_ap50.append(ap_50)
-            avg_ap75.append(ap_75)
-
-            # Save metrics to .csv file, adding as first column the panorama ID
-            metrics = [pano, mean_distance, mean_ious, precision, recall, f1, ap, ap_50, ap_75]
-            with open(os.path.join(directory, 'metrics.csv'), 'a') as f:
-                writer = csv.writer(f)
-                writer.writerow(metrics)
-    # Last row of the .csv file is the average of all the metrics
-    avg_metrics = ['Average', np.mean(avg_distance), np.mean(avg_iou), np.mean(avg_precision), np.mean(avg_recall), np.mean(avg_f1), np.mean(avg_ap), np.mean(avg_ap50), np.mean(avg_ap75)]
-    with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
+    '''# Save metrics to .csv file, adding as first column the panorama ID. Add header
+    with open(os.path.join(directory, f'avg_metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
         writer = csv.writer(f)
-        writer.writerow(avg_metrics)
+        # If the first row contains the header, don't write it again
+        if os.stat(os.path.join(directory, f'avg_metrics_{args.threshold}_{args.radius}.csv')).st_size == 0:
+            writer.writerow(['', 'avg_distance', 'avg_iou', 'precision', \
+                            'recall', 'f1', 'ap', 'ap50', 'ap75'])
+        writer.writerow(['Average', avg_distance, avg_iou, avg_precision, \
+                        avg_recall, avg_f1, avg_ap, avg_ap50, avg_ap75])'''
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
@@ -525,7 +527,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', type=str, default='res/dataset')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
-    parser.add_argument('--visualize', type=bool, default=False)
+    parser.add_argument('--visualize', type=bool, default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')
 

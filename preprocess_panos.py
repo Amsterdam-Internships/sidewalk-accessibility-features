@@ -38,7 +38,7 @@ def move_panos_to_root(input_dir):
             counter += 1
 
         # Delete the folder where the pano was located
-        os.rmdir(foldername)
+        os.rmdir(folderpath)
     print(f'Moved {counter} panos to root of {input_dir}.')
     print('Done!')
 

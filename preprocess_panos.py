@@ -11,6 +11,30 @@ import http.client
 import json
 from tqdm import tqdm
 
+def move_panos_to_root(input_dir):
+    '''Move the panos from the subfolders to the root of the folder.'''
+    # Loop through each folder in the source folder
+    for filename in os.listdir(input_dir):
+
+        # Skip any non-image files
+        if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+            continue
+
+        # Get the ID of the pano
+        pano_id = filename.split('.')[0]
+
+        # Get the folder where the pano is located
+        folder = os.path.join(input_dir, pano_id)
+
+        # Get the path of the pano
+        pano_path = os.path.join(folder, filename)
+
+        # Move the pano to the root of the folder
+        os.rename(pano_path, os.path.join(input_dir, filename))
+
+        # Delete the folder where the pano was located
+        os.rmdir(folder)
+
 '''Credits to Project Sidewealk for the following function:
 https://github.com/ProjectSidewalk/sidewalk-panorama-tools/blob/master/DownloadRunner.py#L166'''
 def fetch_pano_ids_from_webserver():
@@ -53,6 +77,10 @@ def fetch_pano_ids_from_webserver():
     return pano_info
 
 def main(args):
+
+    # DownloadRunner.py downloads each pano inside a folder. We need to move
+    # the images to the root of the folder.
+    move_panos_to_root(args.input_dir)
 
     # Loop through args.input_dir and collect the IDs of the panos
     pano_ids = []

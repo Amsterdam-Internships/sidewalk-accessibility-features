@@ -24,14 +24,14 @@ def move_panos_to_root(input_dir):
             continue
 
         # Loop through each file in the folder
-        for filename in os.listdir(input_dir):
+        for filename in os.listdir(folderpath):
 
             # Skip any non-image files
             if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
                 continue
 
             # Get the path of the pano
-            pano_path = os.path.join(foldername, filename)
+            pano_path = os.path.join(folderpath, filename)
 
             # Move the pano to the root of the folder
             os.rename(pano_path, os.path.join(input_dir, filename))

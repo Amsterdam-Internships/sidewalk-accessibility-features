@@ -11,12 +11,14 @@ import argparse
 import numpy as np
 import pandas as pd
 import re
+import concurrent.futures
+import psutil
 
 from PIL import Image
 
 from tqdm import tqdm
 
-def orient_panorama(img, heading):
+def orient_single_panorama(img, heading):
     '''Credits to Tim Alpherts for the function'''
 
     # We select a tolerance of 0.1 degrees so that 
@@ -47,9 +49,13 @@ def orient_panorama(img, heading):
 
 def orient_panoramas(args):
 
-    # Define path to .csv
-    path = os.path.join(args.input_dir, args.neighbourhood)
-    path = path + '_' + args.quality
+     # Define path to .csv
+    if args.ps:
+        path = args.input_dir
+    else:
+        path = os.path.join(args.input_dir, args.neighbourhood)
+        path = path + '_' + args.quality
+    
     csvpath = os.path.join(path, 'panos.csv')
     csv = pd.read_csv(csvpath)
 
@@ -57,19 +63,15 @@ def orient_panoramas(args):
     folder_reoriented = os.path.join(path, 'reoriented')
     os.makedirs(folder_reoriented, exist_ok=True)
 
-    # Reorient all the images in the .csv file and save them in a new folder
-    # Use tqdm to track progress
-    for index, row in tqdm(csv.iterrows()):
+    def process_image(row, csv_path):
         img_filename = row['pano_id']
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
         heading = row['heading']
-        reoriented_img, bool = orient_panorama(img, heading)
+        reoriented_img, bool = orient_single_panorama(img, heading)
         if not (bool):
             # Save in a .csv file the panoramas that were not reoriented
             # Make sure to go a new line after each entry
-            neighbourhood = args.neighbourhood + '_' + args.quality
-            csv_path = os.path.join(args.input_dir, neighbourhood)
             with open(os.path.join(csv_path, 'not_reoriented.csv'), 'a') as f:
                 f.write(img_filename + ',' + str(heading) + '\n')
 
@@ -78,6 +80,14 @@ def orient_panoramas(args):
         # Cancel the original image with name "img_filename" and path "path"
         os.remove(os.path.join(path, img_filename) + '.jpg')
 
+    # Calculate max_threads based on CPU capacity
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent()
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.9)
+
+    # Use ThreadPoolExecutor to limit the number of concurrent threads
+    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
+        list(tqdm(executor.map(lambda row: process_image(row, csvpath), csv.iterrows()), total=len(csv)))
 
     return
 
@@ -95,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', type=str, default = 'res/dataset') 
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
+    parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     
     args = parser.parse_args()
     

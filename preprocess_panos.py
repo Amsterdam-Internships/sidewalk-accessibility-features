@@ -10,6 +10,7 @@ import os
 import http.client
 import json
 from tqdm import tqdm
+from pprint import pprint
 
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
@@ -104,6 +105,7 @@ def main(args):
 
     # Print the first ID
     print(f'First ID: {pano_ids[:1]}')
+    pprint(pano_ids[:10])
     print(f'# of IDs: {len(pano_ids)}')
 
     # Connect to the API endpoint, collect information for each pano, get the heading and save the couple ID-heading in a .csv file
@@ -119,7 +121,7 @@ def main(args):
     print(f'# of IDs in pano_info after filtering: {len(pano_info)}')
     assert(len(pano_info) == len(pano_ids))
 
-    # Make a .csv file with the IDs and their headings
+    '''# Make a .csv file with the IDs and their headings
     with open(f'{args.input_dir}/panos.csv', mode='w') as csv_file:
         # Write the headers to the CSV file
         csv_file.write('pano_id,heading\n')
@@ -145,7 +147,7 @@ def main(args):
             except:
                 print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
-        print(f'Done! panos_coords.csv saved in {args.input_dir}.')
+        print(f'Done! panos_coords.csv saved in {args.input_dir}.')'''
 
 
 if __name__ == '__main__':

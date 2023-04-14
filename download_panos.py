@@ -5,6 +5,7 @@ The script can be used to select a specific area of interest (e.g. neighbourhood
 @author: Andrea Lombardo
 '''
 
+import subprocess
 import os
 import argparse
 import requests
@@ -218,9 +219,19 @@ def save_panos(links, pano_ids, headings, coords, mission_years, args):
 
 def main(args):
 
-    '''Main function to collect the panoramas'''
-    links, panos_id, headings, coords, mission_years = get_pano_links(args)
-    save_panos(links, panos_id, headings, coords, mission_years, args)
+    if args.ps:
+        print('Downloading panoramas from Project Sidewalk API')
+        sidewalk_server_domain = 'sidewalk-amsterdam.cs.washington.edu'
+        storage_path = args.output_dir
+        subprocess.run(["python", "lib/sidewalk-panorama-tools/DownloadRunner.py", \
+                        sidewalk_server_domain, storage_path])
+        
+
+    else:
+        print('Downloading panoramas from DataPunt API')
+        '''Main function to collect the panoramas'''
+        links, panos_id, headings, coords, mission_years = get_pano_links(args)
+        save_panos(links, panos_id, headings, coords, mission_years, args)
 
 if __name__ == '__main__':
 
@@ -232,7 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('--quality', type=str, default='small')
     parser.add_argument('--output_dir', type=str, default = 'res/dataset')
     parser.add_argument('--projection', type=str, default='4326')
-    
+    parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     
     main(args)

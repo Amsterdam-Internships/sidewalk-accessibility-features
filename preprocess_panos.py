@@ -125,7 +125,7 @@ def main(args):
     print(f'# of IDs in pano_info after filtering: {len(pano_info)}')
     assert(len(pano_info) == len(pano_ids))
 
-    '''# Make a .csv file with the IDs and their headings
+    # Make a .csv file with the IDs and their headings
     with open(f'{args.input_dir}/panos.csv', mode='w') as csv_file:
         # Write the headers to the CSV file
         csv_file.write('pano_id,heading\n')
@@ -133,7 +133,7 @@ def main(args):
         # Loop through each instance of data and write it to the CSV file
         for pano in tqdm(pano_info):
             try:
-                csv_file.write(f"{pano['gsv_panorama_id']},{pano['photographer_heading']}\n")
+                csv_file.write(f"{pano['gsv_panorama_id']},{pano['camera_heading']}\n")
             except:
                 print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
@@ -147,11 +147,11 @@ def main(args):
         # Loop through each instance of data and write it to the CSV file
         for pano in tqdm(pano_info):
             try:
-                csv_file.write(f"{pano['gsv_panorama_id']},{pano['panorama_lat']},{pano['panorama_lng']}\n")
+                csv_file.write(f"{pano['gsv_panorama_id']},{pano['lat']},{pano['lng']}\n")
             except:
                 print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
-        print(f'Done! panos_coords.csv saved in {args.input_dir}.')'''
+        print(f'Done! panos_coords.csv saved in {args.input_dir}.')
 
 
 if __name__ == '__main__':

@@ -14,26 +14,33 @@ from tqdm import tqdm
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
     # Loop through each folder in the source folder
-    for filename in os.listdir(input_dir):
+    counter = 0
+    print(f'Moving panos to root of {input_dir}...')
+    for foldername in tqdm(os.listdir(input_dir)):
+        folderpath = os.path.join(input_dir, foldername)
 
-        # Skip any non-image files
-        if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+        # Skip any non-folder items in the source folder
+        if not os.path.isdir(folderpath):
             continue
 
-        # Get the ID of the pano
-        pano_id = filename.split('.')[0]
+        # Loop through each file in the folder
+        for filename in os.listdir(input_dir):
 
-        # Get the folder where the pano is located
-        folder = os.path.join(input_dir, pano_id)
+            # Skip any non-image files
+            if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+                continue
 
-        # Get the path of the pano
-        pano_path = os.path.join(folder, filename)
+            # Get the path of the pano
+            pano_path = os.path.join(foldername, filename)
 
-        # Move the pano to the root of the folder
-        os.rename(pano_path, os.path.join(input_dir, filename))
+            # Move the pano to the root of the folder
+            os.rename(pano_path, os.path.join(input_dir, filename))
+            counter += 1
 
         # Delete the folder where the pano was located
-        os.rmdir(folder)
+        os.rmdir(foldername)
+    print(f'Moved {counter} panos to root of {input_dir}.')
+    print('Done!')
 
 '''Credits to Project Sidewealk for the following function:
 https://github.com/ProjectSidewalk/sidewalk-panorama-tools/blob/master/DownloadRunner.py#L166'''

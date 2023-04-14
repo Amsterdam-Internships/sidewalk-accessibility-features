@@ -105,17 +105,21 @@ def main(args):
 
     # Print the first ID
     print(f'First ID: {pano_ids[:1]}')
-    pprint(pano_ids[:10])
     print(f'# of IDs: {len(pano_ids)}')
 
     # Connect to the API endpoint, collect information for each pano, get the heading and save the couple ID-heading in a .csv file
     pano_info = fetch_pano_ids_from_webserver()
+
+    pprint(pano_info[:10])
+    print("=====================================")
 
     # Print length of pano_info
     print(f'# of IDs in pano_info before filtering: {len(pano_info)}')
 
     # Filter pano_info to only include the IDs we have in our dataset
     pano_info = [pano for pano in pano_info if pano['gsv_panorama_id'] in pano_ids]
+
+    pprint(pano_info[:10])
 
     # Print length of pano_info
     print(f'# of IDs in pano_info after filtering: {len(pano_info)}')

@@ -63,7 +63,7 @@ def orient_panoramas(args):
     folder_reoriented = os.path.join(path, 'reoriented')
     os.makedirs(folder_reoriented, exist_ok=True)
 
-    def process_image(row, csv_path):
+    def process_image(row, csv_path=csvpath):
         img_filename = row['pano_id']
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
@@ -87,7 +87,7 @@ def orient_panoramas(args):
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
-        list(tqdm(executor.map(lambda row: process_image(row, csvpath), csv.iterrows()), total=len(csv)))
+        list(tqdm(executor.map(process_image, csv.iterrows()), total=len(csv)))
 
     return
 

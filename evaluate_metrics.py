@@ -524,9 +524,12 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
-    args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
-    args.input_dir = args.input_dir + '_' + args.quality
-    args.input_dir = os.path.join(args.input_dir, 'reoriented')
+    if args.ps:
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+    else:
+        args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+        args.input_dir = args.input_dir + '_' + args.quality
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
     # Create the output directory if it doesn't exist
     directory = os.path.join(os.path.dirname(args.input_dir), 'evaluation')
@@ -545,6 +548,7 @@ if __name__ == '__main__':
     parser.add_argument('--visualize', type=bool, default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')
+    parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

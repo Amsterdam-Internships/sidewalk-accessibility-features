@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 def split(args, img_path, directory):
 
+    print(f'Processing image...')
     img = os.path.join(args.input_dir, img_path)
 
     # VrProjector the images 
@@ -74,7 +75,7 @@ def reproject_panos(args):
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.8)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.7)
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:

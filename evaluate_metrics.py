@@ -156,6 +156,8 @@ def compute_label_coordinates(args, dataframe, pano_id):
 
     # Load pano
     image_path = os.path.join(args.input_dir,pano_id)
+    # Add .jpg to the path
+    image_path = image_path + '.jpg'
     image = plt.imread(image_path)
 
     # Find all the labels in the panorama

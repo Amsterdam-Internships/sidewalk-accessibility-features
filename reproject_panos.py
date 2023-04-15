@@ -72,7 +72,6 @@ def reproject_panos(args):
     # Define the function to be executed in parallel
     def reproject_image(img):
         split(args, img, directory)
-        print(f'Done reprojecting {img}!')
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()

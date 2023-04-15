@@ -3,29 +3,23 @@ panoramic image, preparing them as input for the triangulation algorithm.'''
 import sys
 sys.path.append("lib")
 
+import numpy as np
+import cv2
 from tqdm import tqdm
+from PIL import Image
 import vrProjector as vrProjector
 import argparse
 import os
 import re
+import psutil
+import concurrent.futures
 
 import json
 import pycocotools.mask as mask_util
-from pycocotools import mask
-import imantics
 
-
-from PIL import Image, ImageDraw
-import cv2
-import matplotlib.pyplot as plt
-
-import numpy as np
-
-
-
-def resize_masks(args, directory):
-    '''The function resizes the output masks from the model
-    to 512x512. We assume we use MOVE which outputs smaller masks.'''
+'''def resize_masks(args, directory):
+    #The function resizes the output masks from the model
+    #to 512x512. We assume we use MOVE which outputs smaller masks.
     path = os.path.join(os.path.dirname(args.input_dir), 'masks_resized')
     directory = os.path.join(os.path.dirname(args.input_dir), 'masks')
 
@@ -60,7 +54,7 @@ def resize_masks(args, directory):
                 elif mask_path.endswith('front.png'):
                     mask.save(os.path.join(new_mask_path, 'front.png'))
                 elif mask_path.endswith('back.png'):
-                    mask.save(os.path.join(new_mask_path, 'back.png'))
+                    mask.save(os.path.join(new_mask_path, 'back.png'))'''
 
 
 '''https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset'''
@@ -163,9 +157,6 @@ def find_masks(pano_path, pano):
 
 
 def backproject_masks(args, directory):
-    # The idea is to create a black left image and just draw the bounding box on it. Then use
-    # the back, front, right to project the bounding box on the equirectangular image.
-
     # If input_coco_format.json exists, load it
     if os.path.exists(os.path.join(directory, 'input_coco_format.json')):
         with open(os.path.join(directory, 'input_coco_format.json'), 'r') as f:
@@ -174,7 +165,7 @@ def backproject_masks(args, directory):
         input_coco_format = []
 
     # The panos we want to process are the ones we have their masks
-    panos_path = os.path.join(os.path.dirname(args.input_dir), 'masks_resized')
+    panos_path = os.path.join(os.path.dirname(args.input_dir), 'masks')
     panos = os.listdir(panos_path)
 
     # Print number of panos before filtering
@@ -186,19 +177,9 @@ def backproject_masks(args, directory):
     # Print number of panos after filtering
     print('Number of panos after filtering:', len(panos))
 
-    # For testing, stop at 3k new panos
-    #panos = panos[:100]
-
-    # Make a for loop that goes through panoramas in data
-    for pano in tqdm(panos):
+    def process_pano(pano):
         print('Processing panorama', pano)
         pano_path = os.path.join(args.input_dir, pano)
-
-        # source = vrProjector.EquirectangularProjection()
-        # source.loadImage(pano_path)
-        # cb = vrProjector.CubemapProjection()
-        # cb.initImages(512,512)
-        # cb.reprojectToThis(source)
 
         # Make a directory for the backprojected panorama
         pano_path = os.path.join(directory, pano)
@@ -220,11 +201,6 @@ def backproject_masks(args, directory):
         top.save(top_path)
         front.save(front_path)
         back.save(back_path)
-
-        # reprojected_pano_path = os.path.join(os.path.dirname(args.input_dir), 'reprojected', pano)
-
-        # front_path = os.path.join(reprojected_pano_path, 'front.png')
-        # back_path = os.path.join(reprojected_pano_path, 'back.png')
 
         masks_path = os.path.join(panos_path, pano)
 
@@ -255,12 +231,6 @@ def backproject_masks(args, directory):
         eq.reprojectToThis(source)
         eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
 
-        # Delete the bottom,top,front,back images
-        #os.remove(top_path)
-        #os.remove(bottom_path)
-        #os.remove(front_path)
-        #os.remove(back_path)
-
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(pano_path, pano)
 
@@ -284,6 +254,15 @@ def backproject_masks(args, directory):
 
             input_coco_format.append({'pano_id': pano, 'segmentation': rle})
 
+    # Calculate max_threads based on CPU capacity
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent()
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.3)
+
+    # Use ThreadPoolExecutor to limit the number of concurrent threads
+    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
+        list(tqdm(executor.map(process_pano, panos), total=len(panos)))
+        
     # Save input_coco_format
     with open(os.path.join(directory, 'input_coco_format.json'), 'w') as f:
         json.dump(input_coco_format, f)
@@ -293,9 +272,12 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
-    args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
-    args.input_dir = args.input_dir + '_' + args.quality
-    args.input_dir = os.path.join(args.input_dir, 'reoriented')
+    if args.ps:
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+    else:
+        args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+        args.input_dir = args.input_dir + '_' + args.quality
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
     # Create the output directory if it doesn't exist
     directory = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
@@ -313,6 +295,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', type=str, default='res/dataset')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
+    parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

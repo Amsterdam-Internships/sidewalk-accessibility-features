@@ -26,6 +26,14 @@ def move_panos_to_root(input_dir):
         if not os.path.isdir(folderpath):
             continue
 
+        # Skip reoriented folder
+        if foldername == 'reoriented':
+            continue
+
+        # Skip reprojected folder
+        if foldername == 'reprojected':
+            continue
+
         # Loop through each file in the folder
         for filename in os.listdir(folderpath):
 

@@ -39,7 +39,7 @@ def split(args, img_path, directory):
     left = Image.fromarray(np.uint8(cb.left))
 
     # make directory, with panoid as name, to save them in
-    directory = os.path.join(directory, img_path)
+    directory = os.path.join(directory, img)
     if not os.path.exists(directory):
             os.makedirs(directory)
     # save them in that dir
@@ -76,7 +76,7 @@ def reproject_panos(args):
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.1)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.2)
     print(f'Using {max_threads} threads')
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads

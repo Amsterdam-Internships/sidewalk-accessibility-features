@@ -11,6 +11,8 @@ import http.client
 import json
 from tqdm import tqdm
 from PIL import Image
+import concurrent.futures
+import psutil
 
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
@@ -86,26 +88,29 @@ def fetch_pano_ids_from_webserver():
 
 def resize_panos(args, size):
     print(f'Resizing panos in {args.input_dir} to {size}...')
-    # Loop through each pano in the input directory
-    for filename in tqdm(os.listdir(args.input_dir)):
 
-        # Skip any non-image files
+    def resize_image(filename):
         if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
-            continue
+            return
 
-        # Get the path of the pano
         pano_path = os.path.join(args.input_dir, filename)
 
-        # Resize the pano
         img = Image.open(pano_path)
-
-        # Resize the image
-        resized_img = img.resize(size, Image.ANTIALIAS)
-
-        # Save the resized image
+        if img.size == size:
+            return
+        resized_img = img.resize(size, Image.Resampling.LANCZOS)
         resized_img.save(pano_path)
 
-        print('Done!')
+    # Calculate max_threads based on CPU capacity
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent()
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.9)
+
+    # Use ThreadPoolExecutor to limit the number of concurrent threads
+    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
+        list(tqdm(executor.map(resize_image, os.listdir(args.input_dir)), total=len(os.listdir(args.input_dir))))
+
+    print('Resizing done!')
 
         
 

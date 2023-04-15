@@ -154,32 +154,40 @@ def scrape_metadata(args):
     assert(len(pano_info) == len(pano_ids))
 
     # Make a .csv file with the IDs and their headings
-    with open(f'{args.input_dir}/panos.csv', mode='w') as csv_file:
-        # Write the headers to the CSV file
-        csv_file.write('pano_id,heading\n')
+    csv_file_path = f'{args.input_dir}/panos.csv'
 
-        # Loop through each instance of data and write it to the CSV file
-        for pano in tqdm(pano_info):
-            try:
+    # Write the headers to the CSV file if the file doesn't exist yet
+    if not os.path.exists(csv_file_path):
+        with open(csv_file_path, mode='w') as csv_file:
+            csv_file.write('pano_id,heading\n')
+
+    # Loop through each instance of data and append it to the CSV file
+    for pano in tqdm(pano_info):
+        try:
+            with open(csv_file_path, mode='a') as csv_file:
                 csv_file.write(f"{pano['gsv_panorama_id']},{pano['camera_heading']}\n")
-            except:
-                print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
+        except:
+            print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
-        print(f'Done! panos.csv saved in {args.input_dir}.')
+    print(f'Done! panos.csv saved in {args.input_dir}.')
 
     # Make another .csv file with the IDs and their latitudes and longitudes
-    with open(f'{args.input_dir}/panos_coords.csv', mode='w') as csv_file:
-        # Write the headers to the CSV file
-        csv_file.write('pano_id,lat,lng\n')
+    csv_coords_file_path = f'{args.input_dir}/panos_coords.csv'
 
-        # Loop through each instance of data and write it to the CSV file
-        for pano in tqdm(pano_info):
-            try:
+    # Write the headers to the CSV file if the file doesn't exist yet
+    if not os.path.exists(csv_coords_file_path):
+        with open(csv_coords_file_path, mode='w') as csv_file:
+            csv_file.write('pano_id,lat,lng\n')
+
+    # Loop through each instance of data and append it to the CSV file
+    for pano in tqdm(pano_info):
+        try:
+            with open(csv_coords_file_path, mode='a') as csv_file:
                 csv_file.write(f"{pano['gsv_panorama_id']},{pano['lat']},{pano['lng']}\n")
-            except:
-                print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
+        except:
+            print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
-        print(f'Done! panos_coords.csv saved in {args.input_dir}.')
+    print(f'Done! panos_coords.csv saved in {args.input_dir}.')
 
 
 def main(args):

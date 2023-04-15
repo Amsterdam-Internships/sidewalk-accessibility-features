@@ -10,7 +10,7 @@ import os
 import http.client
 import json
 from tqdm import tqdm
-from pprint import pprint
+from PIL import Image
 
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
@@ -84,15 +84,35 @@ def fetch_pano_ids_from_webserver():
     #print(pano_info[:10])
     return pano_info
 
-def main(args):
+def resize_panos(args, size):
+    print(f'Resizing panos in {args.input_dir} to {size}...')
+    # Loop through each pano in the input directory
+    for filename in tqdm(os.listdir(args.input_dir)):
 
-    # DownloadRunner.py downloads each pano inside a folder. We need to move
-    # the images to the root of the folder.
-    move_panos_to_root(args.input_dir)
+        # Skip any non-image files
+        if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+            continue
 
-    # Loop through args.input_dir and collect the IDs of the panos
+        # Get the path of the pano
+        pano_path = os.path.join(args.input_dir, filename)
+
+        # Resize the pano
+        img = Image.open(pano_path)
+
+        # Resize the image
+        resized_img = img.resize(size, Image.ANTIALIAS)
+
+        # Save the resized image
+        resized_img.save(pano_path)
+
+        print('Done!')
+
+        
+
+
+def scrape_metadata(args):
     pano_ids = []
-    # Loop through each folder in the source folder
+    # Loop through each pano in the input directory
     for filename in os.listdir(args.input_dir):
 
         # Skip any non-image files
@@ -147,6 +167,18 @@ def main(args):
                 print(f"Error writing {pano['gsv_panorama_id']} to the CSV file.")
 
         print(f'Done! panos_coords.csv saved in {args.input_dir}.')
+
+
+def main(args):
+    # DownloadRunner.py downloads each pano inside a folder. We need to move
+    # the images to the root of the folder.
+    move_panos_to_root(args.input_dir)
+
+    # Resize panos from 16384x8192 to 2000x1000
+    resize_panos(args, (2000, 1000))
+
+    # Scrape the metadata of the panos
+    scrape_metadata(args)
 
 
 if __name__ == '__main__':

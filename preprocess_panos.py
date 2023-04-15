@@ -182,7 +182,7 @@ def main(args):
     # Resize panos from 16384x8192 to 2000x1000
     resize_panos(args, (2000, 1000))
 
-    # Scrape the metadata of the panos
+    # Scrape the metadata of the panos (heading, lat/lng)
     scrape_metadata(args)
 
 

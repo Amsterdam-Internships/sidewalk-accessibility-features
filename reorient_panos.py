@@ -18,7 +18,7 @@ from PIL import Image
 
 from tqdm import tqdm
 
-def orient_single_panorama(img, heading):
+def orient_single_pano(img, heading):
     '''Credits to Tim Alpherts for the function'''
 
     # We select a tolerance of 0.1 degrees so that 
@@ -47,7 +47,7 @@ def orient_single_panorama(img, heading):
             return img, False
 
 
-def orient_panoramas(args):
+def orient_panos(args):
 
      # Define path to .csv
     if args.ps:
@@ -68,7 +68,7 @@ def orient_panoramas(args):
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
         heading = row['heading']
-        reoriented_img, bool = orient_single_panorama(img, heading)
+        reoriented_img, bool = orient_single_pano(img, heading)
         if not (bool):
             # Save in a .csv file the panoramas that were not reoriented
             # Make sure to go a new line after each entry
@@ -95,7 +95,7 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
     
-    orient_panoramas(args)
+    orient_panos(args)
     return
 
 if __name__ == '__main__':

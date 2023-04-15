@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm     
 
-def split(args, img_path):
+def split(args, img_path, directory):
 
     img = os.path.join(args.input_dir, img_path)
 
@@ -32,49 +32,33 @@ def split(args, img_path):
     cb.reprojectToThis(eq)
 
     # retrieve front back left right
-    #front = Image.fromarray(np.uint8(cb.front))
+    front = Image.fromarray(np.uint8(cb.front))
     right = Image.fromarray(np.uint8(cb.right))
-    #back = Image.fromarray(np.uint8(cb.back))
+    back = Image.fromarray(np.uint8(cb.back))
     left = Image.fromarray(np.uint8(cb.left))
 
     # make directory, with panoid as name, to save them in
-    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
     directory = os.path.join(directory, img_path)
     if not os.path.exists(directory):
             os.makedirs(directory)
     # save them in that dir
-    #front.save(os.path.join(directory, 'front.png'))
+    front.save(os.path.join(directory, 'front.png'))
     right.save(os.path.join(directory, 'right.png'))
-    #back.save(os.path.join(directory, 'back.png'))
+    back.save(os.path.join(directory, 'back.png'))
     left.save(os.path.join(directory, 'left.png'))
 
-    print('saved {}!'.format(img_path))
-
-def main(args):
-
-    # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
-    args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
-
-    args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
-    args.input_dir = args.input_dir + '_' + args.quality
-    args.input_dir = os.path.join(args.input_dir, 'reoriented')
-
-    cpu_percent_threshold = 90
-    mem_percent_threshold = 90
-    disk_percent_threshold = 90
-    # Using all the available cores for the thread pool makes the system crush,
-    # su we use only a third of them
-    #num_workers = int(psutil.cpu_count()/3)
-    num_workers = 3
-    print('Number of workers: {}'.format(num_workers))
-
+def reproject_panos(args):
     # Define list of images in the input directory
     img_list = os.listdir(args.input_dir)
     print('Number of reoriented panos: {}'.format(len(img_list)))
 
+    # Define output directory
+    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     # Check if we already projected images in the output directory. If so, remove them from the list
     # Check also if there are 4 files inside the directory, if not, don't remove it from the list
-    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
     for img in img_list:
         if os.path.exists(os.path.join(directory, img)):
             if len(os.listdir(os.path.join(directory, img))) == 4:
@@ -82,55 +66,37 @@ def main(args):
 
     print('Number of panos after filtering: {}'.format(len(img_list)))
 
-    testing = False
-    if (testing):
-        # Limit the number of images for testing
-        # Randomly choose 100 in the list and make it a list, using the same seed for reproduction
-        np.random.seed(42)
-        img_list2 = np.random.choice(img_list, 100, replace=False).tolist()
+    print(f'Reprojecting panos in {args.input_dir}...')
+    # Define the function to be executed in parallel
+    def reproject_image(img):
+        split(args, img, directory)
 
-        # Create a list of tuples called inputs where each of them is composed of args and one image in img_list2
-        inputs = [(args, img) for img in img_list2]
-    else:
-        # Create a list of tuples called inputs where each of them is composed of args and one image in img_list
-        inputs = [(args, img) for img in img_list]
+    # Calculate max_threads based on CPU capacity
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent()
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.9)
+
+    # Use ThreadPoolExecutor to limit the number of concurrent threads
+    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
+        list(tqdm(executor.map(reproject_image, img_list), total=len(img_list)))
     
-    # Create the output directory if it doesn't exist
-    # Take args.input_dir, strip the last part of the path and add reprojected
-    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+    print(f'Done reprojecting {len(img_list)} images!')
+    return
 
-    if not os.path.exists(directory):
-                os.makedirs(directory)
 
-    # Create a thread pool executor with 4 worker threads
-    # we create a list of Future object by calling executor.submit(split, x, y) for each tuple (x, y) in inputs.
-    # Then we use the concurrent.futures.as_completed(futures) function to iterate over the Future objects
-    # as they complete and retrieve the result.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(split, x, y) for x, y in inputs]
-        # Use cpu_percent to monitor the CPU usage and dynamically adjust the number of workers
-        # Do the same for memory usage and disk usage
-        while True:
-            cpu_percent = psutil.cpu_percent()
-            if cpu_percent > cpu_percent_threshold:
-                num_workers -= 1
-                print('New number of workers: {}'.format(num_workers))
-                executor._max_workers = max(num_workers, 0)
-            mem_percent = psutil.virtual_memory().percent
-            if mem_percent > mem_percent_threshold:
-                num_workers -= 1
-                executor._max_workers = max(num_workers, 0)
-            disk_percent = psutil.disk_usage("/").percent
-            if disk_percent > disk_percent_threshold:
-                num_workers -= 1
-                executor._max_workers = max(num_workers, 0)
-            if all(future.done() for future in futures):
-                break
-            for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-                try:
-                    result = future.result()
-                except Exception as exc:
-                    print('%r generated an exception: %s' % (input, exc))
+def main(args):
+
+    # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
+    args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
+
+    if args.ps:
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+    else:
+        args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
+        args.input_dir = args.input_dir + '_' + args.quality
+        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+
+    reproject_panos(args)
 
 if __name__ == '__main__':
 
@@ -140,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--size', type=int, default = 512)
+    parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     
     args = parser.parse_args()
     

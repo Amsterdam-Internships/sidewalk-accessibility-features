@@ -76,7 +76,7 @@ def reproject_panos(args):
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.2)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.1)
     print(f'Using {max_threads} threads')
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads

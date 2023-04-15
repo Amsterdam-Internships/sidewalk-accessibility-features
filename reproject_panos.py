@@ -39,7 +39,8 @@ def split(args, img_path, directory):
     left = Image.fromarray(np.uint8(cb.left))
 
     # make directory, with panoid as name, to save them in
-    directory = os.path.join(directory, img)
+    folder = img_path.split('.')[0]
+    directory = os.path.join(directory, folder)
     if not os.path.exists(directory):
             os.makedirs(directory)
     # save them in that dir

@@ -71,11 +71,13 @@ def reproject_panos(args):
     # Define the function to be executed in parallel
     def reproject_image(img):
         split(args, img, directory)
+        print(f'Done reprojecting {img}!')
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.7)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.5)
+    print(f'Using {max_threads} threads')
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:

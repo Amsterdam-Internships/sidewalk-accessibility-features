@@ -234,6 +234,8 @@ def backproject_masks(args, directory):
         # Delete the bottom,top,front,back images
         os.remove(top_path)
         os.remove(bottom_path)
+        os.remove(left_path)
+        os.remove(right_path)
         os.remove(front_path)
         os.remove(back_path)
 

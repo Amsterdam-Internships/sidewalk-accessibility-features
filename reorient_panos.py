@@ -73,7 +73,7 @@ def orient_panos(args):
 
     print(f'Number of panos left to reorient: {len(csv)}')
 
-    def process_image(index, row, csv_path=csvpath):
+    def process_image(index, row):
         img_filename = row['pano_id']
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
@@ -88,7 +88,7 @@ def orient_panos(args):
         if not (bool):
             # Save in a .csv file the panoramas that were not reoriented
             # Make sure to go a new line after each entry
-            with open(os.path.join(csv_path, 'not_reoriented.csv'), 'a') as f:
+            with open(os.path.join(path, 'not_reoriented.csv'), 'a') as f:
                 f.write(img_filename + ',' + str(heading) + '\n')
 
         # Save the image in the reoriented folder

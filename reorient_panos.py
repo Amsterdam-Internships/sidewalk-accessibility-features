@@ -59,16 +59,32 @@ def orient_panos(args):
     csvpath = os.path.join(path, 'panos.csv')
     csv = pd.read_csv(csvpath)
 
-    # Make a folder to store the reoriented panoramas called sample_dataset_reoriented
-    folder_reoriented = os.path.join(path, 'reoriented')
-    os.makedirs(folder_reoriented, exist_ok=True)
+    print(f'Number of panos in panos.csv: {len(csv)}')
+
+    # Define output directory
+    directory = os.path.join(path, 'reoriented')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Collect the list of images already reoriented in directory. Remove them from the pandas dataframe
+    reoriented_list = os.listdir(directory)
+    reoriented_list = [re.sub('.jpg', '', x) for x in reoriented_list]
+    csv = csv[~csv['pano_id'].isin(reoriented_list)]
+
+    print(f'Number of panos left to reorient: {len(csv)}')
 
     def process_image(index, row, csv_path=csvpath):
         img_filename = row['pano_id']
         
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
-        heading = row['heading']
-        reoriented_img, bool = orient_single_pano(img, heading)
+
+        # Temporary check to see if the image has not been resized
+        if img.size != (2000,1000):
+            print('Image not resized: ' + img_filename)
+            return
+        else:
+            heading = row['heading']
+            reoriented_img, bool = orient_single_pano(img, heading)
         if not (bool):
             # Save in a .csv file the panoramas that were not reoriented
             # Make sure to go a new line after each entry
@@ -76,7 +92,7 @@ def orient_panos(args):
                 f.write(img_filename + ',' + str(heading) + '\n')
 
         # Save the image in the reoriented folder
-        reoriented_img.save(folder_reoriented + '/' + img_filename, format='JPEG')
+        reoriented_img.save(directory + '/' + img_filename, format='JPEG')
         # Cancel the original image with name "img_filename" and path "path"
         os.remove(os.path.join(path, img_filename) + '.jpg')
 

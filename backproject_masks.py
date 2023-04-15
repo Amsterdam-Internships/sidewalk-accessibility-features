@@ -231,6 +231,12 @@ def backproject_masks(args, directory):
         eq.reprojectToThis(source)
         eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
 
+        # Delete the bottom,top,front,back images
+        os.remove(top_path)
+        os.remove(bottom_path)
+        os.remove(front_path)
+        os.remove(back_path)
+
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(pano_path, pano)
 
@@ -257,7 +263,7 @@ def backproject_masks(args, directory):
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.3)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.4)
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:

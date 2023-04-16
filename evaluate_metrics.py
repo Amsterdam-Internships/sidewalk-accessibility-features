@@ -424,10 +424,10 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
         panos[pano_id].append(mask)
 
     for pano in panos:
-        print(f"Evaluating {pano}...")
         '''Assumptions: there is one ground truth for each mask, 
         and the order of the masks is the same as the order of the ground truth indices.'''
         if pano in other_labels_df["gsv_panorama_id"].values:
+            print(f"Evaluating {pano}...")
             pred_masks = panos[pano]
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)

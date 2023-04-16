@@ -68,6 +68,10 @@ def orient_panos(args):
 
     # Collect the list of images already reoriented in directory. Remove them from the pandas dataframe
     reoriented_list = os.listdir(directory)
+
+    # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list before removing the extension?
+    print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
+     
     reoriented_list = [re.sub('.jpg', '', x) for x in reoriented_list]
 
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list?

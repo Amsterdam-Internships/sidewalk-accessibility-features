@@ -51,14 +51,15 @@ def get_xy_coords_ps_labels():
 
 def visualize_labels(args, gt_points, pano_id, path):
     # Load the image
-    # Check if pano_id contains .jpg extension. If not, add it
-    if not pano_id.endswith('.jpg'):
-        image_path = os.path.join(args.input_dir, f'{pano_id}.jpg')
-    else:
-        image_path = os.path.join(args.input_dir, pano_id)
+    image_path = os.path.join(args.input_dir, pano_id)
     backprojected_path = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
     mask_path = os.path.join(backprojected_path, f'{pano_id}/{pano_id}.png')
-    image = plt.imread(image_path)
+    # Depending on the machine, the path might be different
+    # Try to load the image with and without the .jpg extension
+    try:
+        image = plt.imread(image_path + '.jpg')
+    except:
+        image = plt.imread(image_path)
     mask = plt.imread(mask_path)
 
     fig = plt.figure()
@@ -70,6 +71,8 @@ def visualize_labels(args, gt_points, pano_id, path):
     
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}.png'), dpi=300, bbox_inches='tight')
+    # Close the figure
+    plt.close(fig)
 
 def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_indices, pano_id, path, cp=True):
     num_masks = len(pred_masks)
@@ -103,6 +106,7 @@ def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_in
         filename = f'{pano_id}_mask_ap.png'
 
     fig.savefig(os.path.join(path, filename), dpi=300, bbox_inches='tight')
+    plt.close(fig)
 
 def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, pano_id, path):
     num_masks = len(pred_masks)
@@ -154,15 +158,20 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
 
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}_mask_iou.png'), dpi=300, bbox_inches='tight')
+    # Close the figure
+    plt.close(fig)
 
 
 def compute_label_coordinates(args, dataframe, pano_id):            
 
     # Load pano
     image_path = os.path.join(args.input_dir,pano_id)
-    # Add .jpg to the path
-    image_path = image_path + '.jpg'
-    image = plt.imread(image_path)
+    # Depending on the machine, the path might be different
+    # Try to load the image with and without the .jpg extension
+    try:
+        image = plt.imread(image_path + '.jpg')
+    except:
+        image = plt.imread(image_path)
 
     # Find all the labels in the panorama
     labels = dataframe[dataframe['gsv_panorama_id'] == pano_id]

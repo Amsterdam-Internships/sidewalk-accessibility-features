@@ -50,11 +50,12 @@ def get_xy_coords_ps_labels():
     return other_labels_df
 
 def visualize_labels(args, gt_points, pano_id, path):
+    # Load the image
     # Check if pano_id contains .jpg extension. If not, add it
     if not pano_id.endswith('.jpg'):
-        pano_id += '.jpg'
-    # Load the image
-    image_path = os.path.join(args.input_dir, pano_id)
+        image_path = os.path.join(args.input_dir, f'{pano_id}.jpg')
+    else:
+        image_path = os.path.join(args.input_dir, pano_id)
     backprojected_path = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
     mask_path = os.path.join(backprojected_path, f'{pano_id}/{pano_id}.png')
     image = plt.imread(image_path)

@@ -71,11 +71,11 @@ def orient_panos(args):
 
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list before removing the extension?
     print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
-     
+
     reoriented_list = [re.sub('.jpg', '', x) for x in reoriented_list]
 
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list?
-    print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
+    print('6yFEVY-n_FDyEQQhPYjjpg.jpg' in reoriented_list)
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in csv?
     print('6yFEVY-n_FDyEQQhPYjjpg' in csv['pano_id'].tolist())
 

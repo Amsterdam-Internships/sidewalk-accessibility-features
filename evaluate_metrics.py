@@ -471,7 +471,7 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
                 if random.random() < 0.01:
                     continue
                 else:
-                    visualization_path = os.path.join(os.path.dirname(args.input_dir), 'visualized')
+                    visualization_path = os.path.join(directory, 'visualized')
                     print(f'Visualization of pano {pano} with threshold=', args.threshold, ' and radius=', args.radius, '')
                     # Make a folder 'visualized' if not present
                     if not os.path.exists(visualization_path):

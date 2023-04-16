@@ -200,7 +200,7 @@ def main(args):
     scrape_metadata(args)
 
     # Reorient the panos
-    subprocess.run(["python", "reorient_panos.py", args.input_dir])
+    subprocess.run(["python", "reorient_panos.py", f'--input_dir=\"{args.input_dir}\"'])
 
 
 if __name__ == '__main__':

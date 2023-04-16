@@ -14,6 +14,7 @@ import re
 import csv
 import random
 from collections import defaultdict
+import pprint
 
 def get_ps_labels():
 
@@ -414,6 +415,7 @@ def average_precision_iou(best_ious, gt_points, threshold):
     return ap
 
 def evaluate_single_batch(args, batch, other_labels_df, directory):
+    pprint(batch)
     panos = {}
     for instance in batch:
         pano_id = instance['pano_id'].replace(".jpg", "")

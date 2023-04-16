@@ -516,9 +516,13 @@ def evaluate(args, directory):
 
     # Group instances by pano_id
     grouped_data = defaultdict(list)
+    # Count instances in data
+    count = 0
     for instance in data:
+        count += 1
         grouped_data[instance['pano_id']].append(instance)
 
+    print(f'Number of instances (masks): {count}')
     # Split data into batches with no more than 5 different pano_ids
     batches = []
     batch, pano_count = [], 0

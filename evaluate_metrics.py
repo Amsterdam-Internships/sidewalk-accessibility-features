@@ -14,7 +14,7 @@ import re
 import csv
 import random
 from collections import defaultdict
-import pprint
+from pprint import pprint
 
 def get_ps_labels():
 

@@ -5,6 +5,7 @@ API endpoint: https://sidewalk-amsterdam.cs.washington.edu/adminapi/panos
 @author: Andrea Lombardo
 '''
 
+import subprocess
 import argparse
 import os
 import http.client
@@ -112,9 +113,6 @@ def resize_panos(args, size):
 
     print('Resizing done!')
 
-        
-
-
 def scrape_metadata(args):
     pano_ids = []
     # Loop through each pano in the input directory
@@ -155,6 +153,10 @@ def scrape_metadata(args):
 
     # Loop through each instance of data and append it to the CSV file
     for pano in tqdm(pano_info):
+        # Check if pano['gsv_panorama_id'] is in the CSV file already. If it is, skip it.
+        with open(csv_file_path, mode='r') as csv_file:
+            if pano['gsv_panorama_id'] in csv_file.read():
+                continue
         try:
             with open(csv_file_path, mode='a') as csv_file:
                 csv_file.write(f"{pano['gsv_panorama_id']},{pano['camera_heading']}\n")
@@ -173,6 +175,10 @@ def scrape_metadata(args):
 
     # Loop through each instance of data and append it to the CSV file
     for pano in tqdm(pano_info):
+        # Check if pano['gsv_panorama_id'] is in the CSV file already. If it is, skip it.
+        with open(csv_file_path, mode='r') as csv_file:
+            if pano['gsv_panorama_id'] in csv_file.read():
+                continue
         try:
             with open(csv_coords_file_path, mode='a') as csv_file:
                 csv_file.write(f"{pano['gsv_panorama_id']},{pano['lat']},{pano['lng']}\n")
@@ -192,6 +198,9 @@ def main(args):
 
     # Scrape the metadata of the panos (heading, lat/lng)
     scrape_metadata(args)
+
+    # Reorient the panos
+    subprocess.run(["python", "reorient_panos.py", args.input_dir])
 
 
 if __name__ == '__main__':

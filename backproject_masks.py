@@ -178,6 +178,9 @@ def backproject_masks(args, directory):
     # Print number of panos after filtering
     print('Number of panos after filtering:', len(panos))
 
+    # Test evaluation function, we just need 20 panos
+    panos = panos[:20]
+
     def process_pano(pano):
         print('Processing panorama', pano)
 

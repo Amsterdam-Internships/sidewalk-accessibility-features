@@ -181,11 +181,6 @@ def backproject_masks(args, directory):
     def process_pano(pano):
         print('Processing panorama', pano)
 
-        # Make a directory for the backprojected panorama
-        backproject_pano_path = os.path.join(directory, pano)
-        if not os.path.exists(backproject_pano_path):
-            os.makedirs(backproject_pano_path)
-
         '''
         # Make bottom,top,front,back 512x512 black images
         bottom = Image.new('RGB', (512, 512), (0, 0, 0))
@@ -213,6 +208,12 @@ def backproject_masks(args, directory):
             with open(os.path.join(directory, 'not_backprojected.csv'), 'a') as f:
                 f.write(f'{pano}\n')
             return
+        
+        # Make a directory for the backprojected panorama
+        backproject_pano_path = os.path.join(directory, pano)
+        if not os.path.exists(backproject_pano_path):
+            os.makedirs(backproject_pano_path)
+
 
         # Load the left, right, front, back masks path.
         # If they don't exist, make a 512x512 black image and save it in the folder.

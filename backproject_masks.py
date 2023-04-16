@@ -88,6 +88,9 @@ def find_masks(pano_path, pano):
     # Resize it to 2000x1000
     pano_mask = cv2.resize(pano_mask, (2000, 1000))
 
+    # Load the image
+    img = cv2.imread(os.path.join(pano_path, pano) + '.png')
+
     # Define the RGB values for yellow
     yellow_rgb = np.array([255, 246, 0])
     # Define the RGB values for blue
@@ -96,7 +99,65 @@ def find_masks(pano_path, pano):
     red_rgb = np.array([255, 0, 0])
     # Define the RGB values for green
     green_rgb = np.array([0, 255, 0])
-    # Convert it to HSV
+
+    colors = {
+        "yellow": yellow_rgb,
+        "blue": blue_rgb,
+        "red": red_rgb,
+        "green": green_rgb
+    }
+    
+    # Convert the RGB values to HSV
+    # Threshold the image based on the HSV values
+    hsv_colors = {k: cv2.cvtColor(np.uint8([[v]]), cv2.COLOR_RGB2HSV)[0][0] for k, v in colors.items()}
+    hsv_lower = {k: np.array([v[0] - 10, v[1], v[2]]) for k, v in hsv_colors.items()}
+    hsv_upper = {k: np.array([v[0] + 10, 255, 255]) for k, v in hsv_colors.items()}
+
+    # Apply masks to the image
+    pano_mask_hsv = cv2.cvtColor(pano_mask, cv2.COLOR_RGB2HSV)
+    combined_mask = np.zeros_like(pano_mask_hsv[:, :, 0])
+    for k, v in hsv_colors.items():
+        temp_mask = cv2.inRange(pano_mask_hsv, hsv_lower[k], hsv_upper[k])
+        combined_mask = cv2.bitwise_or(combined_mask, temp_mask)
+    
+    # Apply morphological operations to the mask (fill small holes)
+    combined_mask = cv2.morphologyEx(
+        combined_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    
+    hsv_colors = {k: cv2.cvtColor(np.uint8([[v]]), cv2.COLOR_RGB2HSV)[0][0] for k, v in colors.items()}
+    
+    hsv_lower = {k: np.array([v[0] - 10, v[1], v[2]]) for k, v in hsv_colors.items()}
+    hsv_upper = {k: np.array([v[0] + 10, 255, 255]) for k, v in hsv_colors.items()}
+    
+    # Apply masks to the image
+    pano_mask_hsv = cv2.cvtColor(pano_mask, cv2.COLOR_RGB2HSV)
+    combined_mask = np.zeros_like(pano_mask_hsv[:, :, 0])
+    individual_masks = {}
+    for k, v in hsv_colors.items():
+        temp_mask = cv2.inRange(pano_mask_hsv, hsv_lower[k], hsv_upper[k])
+        combined_mask = cv2.bitwise_or(combined_mask, temp_mask)
+        individual_masks[k] = temp_mask
+    
+    combined_mask = cv2.morphologyEx(
+        combined_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+
+    # Split the combined mask into individual masks
+    left_image_mask = img.copy()
+    left_image_mask[individual_masks["yellow"] != 255] = 0
+
+    right_image_mask = img.copy()
+    right_image_mask[individual_masks["blue"] != 255] = 0
+
+    front_image_mask = img.copy()
+    front_image_mask[individual_masks["red"] != 255] = 0
+
+    back_image_mask = img.copy()
+    back_image_mask[individual_masks["green"] != 255] = 0
+
+    return [left_image_mask, right_image_mask, front_image_mask, back_image_mask]
+    
+
+    '''# Convert it to HSV
     yellow_hsv = cv2.cvtColor(
         np.uint8([[yellow_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
     blue_hsv = cv2.cvtColor(np.uint8([[blue_rgb]]), cv2.COLOR_RGB2HSV)[0][0]
@@ -134,8 +195,7 @@ def find_masks(pano_path, pano):
     green_mask = cv2.morphologyEx(
         green_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
 
-    # Load the image
-    img = cv2.imread(os.path.join(pano_path, pano) + '.png')
+
 
     # Convert all the image (img) but the pixels corresponding to the yellow_mask locations to black
     left_image_mask = img.copy()
@@ -153,7 +213,7 @@ def find_masks(pano_path, pano):
     back_image_mask = img.copy()
     back_image_mask[green_mask != 255] = 0
 
-    return [left_image_mask, right_image_mask, front_image_mask, back_image_mask]
+    return [left_image_mask, right_image_mask, front_image_mask, back_image_mask]'''
 
 
 def backproject_masks(args, directory):

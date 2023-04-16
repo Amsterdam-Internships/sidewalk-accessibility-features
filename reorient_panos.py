@@ -63,6 +63,7 @@ def orient_panos(args):
 
     # Define output directory
     directory = os.path.join(path, 'reoriented')
+    print(f'Directory: {directory}')
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -70,12 +71,12 @@ def orient_panos(args):
     reoriented_list = os.listdir(directory)
 
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list before removing the extension?
-    print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
+    print('6yFEVY-n_FDyEQQhPYjjpg.jpg' in reoriented_list)
 
     reoriented_list = [re.sub('.jpg', '', x) for x in reoriented_list]
-
+    
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list?
-    print('6yFEVY-n_FDyEQQhPYjjpg.jpg' in reoriented_list)
+    print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
     # Test: is 6yFEVY-n_FDyEQQhPYjjpg in csv?
     print('6yFEVY-n_FDyEQQhPYjjpg' in csv['pano_id'].tolist())
 

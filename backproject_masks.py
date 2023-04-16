@@ -263,7 +263,7 @@ def backproject_masks(args, directory):
         #os.remove(back_path)
 
         # Convert the masks to panorama sizes ones
-        pano_masks = find_masks(masks_path, pano)
+        pano_masks = find_masks(backproject_pano_path, pano)
 
         # original_image_path = os.path.join(os.path.dirname(args.input_dir), 'reoriented', pano)
 

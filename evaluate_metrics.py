@@ -527,7 +527,8 @@ def evaluate(args, directory):
 
     # Split data into batches with no more than 5 different pano_ids
     batches = []
-    batch, pano_count = [], 0
+    batch = []
+    pano_count = 0
 
     for instances in grouped_data.values():
         if pano_count < 5:
@@ -535,7 +536,16 @@ def evaluate(args, directory):
             pano_count += 1
         else:
             batches.append(batch)
-            batch, pano_count = instances, 1
+            batch = instances.copy()
+            pano_count = 1
+
+        if pano_count == 5:
+            batches.append(batch)
+            batch = []
+            pano_count = 0
+
+    if batch:
+        batches.append(batch)
 
     print(f'Number of batches: {len(batches)}')
 

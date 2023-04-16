@@ -511,7 +511,7 @@ def evaluate(args, directory):
     # The structure of data is a list of dictionaries, with instance['pano_id'] as the panorama ID
     # and instance['segmentation'] as the corresponding masks. Make a dictionary of masks with
     # the panorama ID as the key and a list of masks as value.
-    data = np.array_split(data, 200)
+    data = np.array_split(data, 5)
     print('Length of data: ', len(data))
     print('Length of each data batch: ', len(data[0]))
 

@@ -531,6 +531,8 @@ def evaluate(args, directory):
             batches.append(batch)
             batch, pano_count = instances, 1
 
+    print(f'Number of batches: {len(batches)}')
+
     if batch: batches.append(batch)
 
     for data_batch in tqdm(batches):

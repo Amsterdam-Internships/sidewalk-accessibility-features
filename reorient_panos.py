@@ -97,8 +97,9 @@ def orient_panos(args):
 
         # Save the image in the reoriented folder
         reoriented_img.save(os.path.join(directory, img_filename) + '.jpg', 'JPEG')
-        # Cancel the original image with name "img_filename" and path "path"
-        os.remove(os.path.join(path, img_filename) + '.jpg')
+        # Cancel the original image with name "img_filename" and path "path". Check first if it exists
+        if os.path.exists(os.path.join(path, img_filename) + '.jpg'):
+            os.remove(os.path.join(path, img_filename) + '.jpg')
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()

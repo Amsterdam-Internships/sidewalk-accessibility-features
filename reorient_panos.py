@@ -76,6 +76,11 @@ def orient_panos(args):
 
     print(f'Number of panos left to reorient: {len(csv)}')
 
+    for reoriented in reoriented_list:
+        # Remove the original image from the folder
+        if os.path.exists(os.path.join(path, reoriented) + '.jpg'):
+            os.remove(os.path.join(path, reoriented) + '.jpg')
+
     def process_image(index, row):
         img_filename = row['pano_id']
         

@@ -13,6 +13,7 @@ import argparse
 import re
 import csv
 import random
+from collections import defaultdict
 
 def get_ps_labels():
 
@@ -509,15 +510,30 @@ def evaluate(args, directory):
         data = json.load(f)
 
     # The structure of data is a list of dictionaries, with instance['pano_id'] as the panorama ID
-    # and instance['segmentation'] as the corresponding masks. Make a dictionary of masks with
-    # the panorama ID as the key and a list of masks as value.
+    # and instance['segmentation'] as the corresponding masks.
+    # We want to group the instances by pano_id, and then split the data into batches
+    # with no more than 5 different pano_ids, so that the CPU can handle it.
 
-    # Split the data into 1/2 of the original size
-    data = data[:int(len(data)/2)]
-    print('Length of data: ', len(data))
-    print('Length of each data batch: ', len(data[0]))
+    # Group instances by pano_id
+    grouped_data = defaultdict(list)
+    for instance in data:
+        grouped_data[instance['pano_id']].append(instance)
 
-    for data_batch in tqdm(data):
+    # Split data into batches with no more than 5 different pano_ids
+    batches = []
+    batch, pano_count = [], 0
+
+    for instances in grouped_data.values():
+        if pano_count < 5:
+            batch.extend(instances)
+            pano_count += 1
+        else:
+            batches.append(batch)
+            batch, pano_count = instances, 1
+
+    if batch: batches.append(batch)
+
+    for data_batch in tqdm(batches):
         # Check if cpu can handle the batch
         evaluate_single_batch(args, data_batch, other_labels_df, directory)
             

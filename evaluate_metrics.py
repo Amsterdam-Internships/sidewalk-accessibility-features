@@ -169,14 +169,14 @@ def compute_label_coordinates(args, dataframe, pano_id):
     for index, row in labels.iterrows():
         #print('Labels coming from panorama:', row['gsv_panorama_id'])
         label_name = row['label_id']
-        image_width = row['image_width']
-        image_height = row['image_height']
-        sv_image_x = row['sv_image_x']
+        image_width = row['pano_width']
+        image_height = row['pano_height']
+        sv_image_x = row['pano_x']
         # Momentarily change the definition of sv_image_y. For now,
         # sv_image_y is the offset w.r.t. the middle of the image
         # which means that the real y coordinate is y = (image_width / 2) - sv_image_y
-        sv_image_y = row['sv_image_y']
-        real_y = (image_height / 2) - sv_image_y
+        sv_image_y = row['pano_y']
+        #real_y = (image_height / 2) - sv_image_y
 
         #print(f'Original image width: {image_width}, height: {image_height}')
         #print(f'Original label {label_name} coordinates: {sv_image_x}, {sv_image_y}')
@@ -186,7 +186,7 @@ def compute_label_coordinates(args, dataframe, pano_id):
         # image_width : sv_image_x = my_pano_width : sv_pano_x
         # sv_pano_x = (sv_image_x * my_pano_width) / image_width
         sv_pano_x = int(sv_image_x*image.shape[1]/image_width)
-        sv_pano_y = int(real_y*image.shape[0]/image_height)
+        sv_pano_y = int(sv_image_y*image.shape[0]/image_height)
 
         #print(f'Scaled label {label_name} coordinates: {sv_pano_x}, {sv_pano_y} \n')
 

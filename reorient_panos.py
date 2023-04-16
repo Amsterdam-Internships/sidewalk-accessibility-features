@@ -79,7 +79,6 @@ def orient_panos(args):
     def process_image(index, row):
         img_filename = row['pano_id']
         
-        print(f'Processing image {img_filename}...')
         img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
 
         # Temporary check to see if the image has not been resized

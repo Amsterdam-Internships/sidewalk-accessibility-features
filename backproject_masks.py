@@ -186,6 +186,7 @@ def backproject_masks(args, directory):
         if not os.path.exists(pano_path):
             os.makedirs(pano_path)
 
+        '''
         # Make bottom,top,front,back 512x512 black images
         bottom = Image.new('RGB', (512, 512), (0, 0, 0))
         top = Image.new('RGB', (512, 512), (0, 0, 0))
@@ -200,16 +201,19 @@ def backproject_masks(args, directory):
         bottom.save(bottom_path)
         top.save(top_path)
         front.save(front_path)
-        back.save(back_path)
+        back.save(back_path)'''
 
         masks_path = os.path.join(panos_path, pano)
 
         # Load the left, right, front, back masks path.
-        # If they don't exist, make a 512x512 black image and save it in the folder
+        # If they don't exist, make a 512x512 black image and save it in the folder.
+        # This is the case of top and bottom masks
         left_path = os.path.join(masks_path, 'left.png')
         right_path = os.path.join(masks_path, 'right.png')
         front_path = os.path.join(masks_path, 'front.png')
         back_path = os.path.join(masks_path, 'back.png')
+        top_path = os.path.join(masks_path, 'top.png')
+        bottom_path = os.path.join(masks_path, 'bottom.png')
         if not os.path.exists(left_path):
             left = Image.new('RGB', (512, 512), (0, 0, 0))
             left.save(left_path)
@@ -222,6 +226,12 @@ def backproject_masks(args, directory):
         if not os.path.exists(back_path):
             back = Image.new('RGB', (512, 512), (0, 0, 0))
             back.save(back_path)
+        if not os.path.exists(top_path):
+            top = Image.new('RGB', (512, 512), (0, 0, 0))
+            top.save(top_path)
+        if not os.path.exists(bottom_path):
+            bottom = Image.new('RGB', (512, 512), (0, 0, 0))
+            bottom.save(bottom_path)
 
         source = vrProjector.CubemapProjection()
         source.loadImages(front_path, right_path, back_path,
@@ -232,12 +242,12 @@ def backproject_masks(args, directory):
         eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
 
         # Delete the bottom,top,front,back images
-        os.remove(top_path)
-        os.remove(bottom_path)
-        os.remove(left_path)
-        os.remove(right_path)
-        os.remove(front_path)
-        os.remove(back_path)
+        #os.remove(top_path)
+        #os.remove(bottom_path)
+        #os.remove(left_path)
+        #os.remove(right_path)
+        #os.remove(front_path)
+        #os.remove(back_path)
 
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(pano_path, pano)

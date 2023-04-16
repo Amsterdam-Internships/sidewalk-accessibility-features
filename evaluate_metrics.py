@@ -50,6 +50,9 @@ def get_xy_coords_ps_labels():
     return other_labels_df
 
 def visualize_labels(args, gt_points, pano_id, path):
+    # Check if pano_id contains .jpg extension. If not, add it
+    if not pano_id.endswith('.jpg'):
+        pano_id += '.jpg'
     # Load the image
     image_path = os.path.join(args.input_dir, pano_id)
     backprojected_path = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
@@ -412,7 +415,6 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
         '''Assumptions: there is one ground truth for each mask, 
         and the order of the masks is the same as the order of the ground truth indices.'''
         if pano in other_labels_df["gsv_panorama_id"].values:
-            #print(f'Pano: {pano}')
             pred_masks = panos[pano]
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)

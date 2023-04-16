@@ -69,6 +69,13 @@ def orient_panos(args):
     # Collect the list of images already reoriented in directory. Remove them from the pandas dataframe
     reoriented_list = os.listdir(directory)
     reoriented_list = [re.sub('.jpg', '', x) for x in reoriented_list]
+
+    # Test: is 6yFEVY-n_FDyEQQhPYjjpg in reoriented_list?
+    print('6yFEVY-n_FDyEQQhPYjjpg' in reoriented_list)
+    # Test: is 6yFEVY-n_FDyEQQhPYjjpg in csv?
+    print('6yFEVY-n_FDyEQQhPYjjpg' in csv['pano_id'].tolist())
+
+
     csv = csv[~csv['pano_id'].isin(reoriented_list)]
 
     print(f'Number of panos left to reorient: {len(csv)}')

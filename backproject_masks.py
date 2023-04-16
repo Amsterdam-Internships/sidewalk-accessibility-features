@@ -205,6 +205,15 @@ def backproject_masks(args, directory):
 
         masks_path = os.path.join(panos_masks_path, pano)
 
+        # Check if there are less then 4 masks in the folder.
+        # If so, skip this panorama and save pano in a new .csv called 'not_backprojected.csv'
+        masks = os.listdir(masks_path)
+        if len(masks) < 4:
+            print('Less than 4 masks found, skipping panorama')
+            with open(os.path.join(directory, 'not_backprojected.csv'), 'a') as f:
+                f.write(f'{pano}\n')
+            return
+
         # Load the left, right, front, back masks path.
         # If they don't exist, make a 512x512 black image and save it in the folder.
         # This is the case of top and bottom masks

@@ -415,7 +415,6 @@ def average_precision_iou(best_ious, gt_points, threshold):
     return ap
 
 def evaluate_single_batch(args, batch, other_labels_df, directory):
-    pprint(batch)
     panos = {}
     for instance in batch:
         pano_id = instance['pano_id'].replace(".jpg", "")
@@ -425,6 +424,7 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
         panos[pano_id].append(mask)
 
     for pano in panos:
+        print(f"Evaluating {pano}...")
         '''Assumptions: there is one ground truth for each mask, 
         and the order of the masks is the same as the order of the ground truth indices.'''
         if pano in other_labels_df["gsv_panorama_id"].values:

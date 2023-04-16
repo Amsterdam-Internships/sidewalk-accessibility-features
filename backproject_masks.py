@@ -165,8 +165,9 @@ def backproject_masks(args, directory):
         input_coco_format = []
 
     # The panos we want to process are the ones we have their masks
-    panos_path = os.path.join(os.path.dirname(args.input_dir), 'masks')
-    panos = os.listdir(panos_path)
+    panos_masks_path = os.path.join(os.path.dirname(args.input_dir), 'masks')
+    print(f'Looking for masks in {panos_masks_path}')
+    panos = os.listdir(panos_masks_path)
 
     # Print number of panos before filtering
     print('Number of panos before filtering:', len(panos))
@@ -179,12 +180,11 @@ def backproject_masks(args, directory):
 
     def process_pano(pano):
         print('Processing panorama', pano)
-        pano_path = os.path.join(args.input_dir, pano)
 
         # Make a directory for the backprojected panorama
-        pano_path = os.path.join(directory, pano)
-        if not os.path.exists(pano_path):
-            os.makedirs(pano_path)
+        backproject_pano_path = os.path.join(directory, pano)
+        if not os.path.exists(backproject_pano_path):
+            os.makedirs(backproject_pano_path)
 
         '''
         # Make bottom,top,front,back 512x512 black images
@@ -203,7 +203,7 @@ def backproject_masks(args, directory):
         front.save(front_path)
         back.save(back_path)'''
 
-        masks_path = os.path.join(panos_path, pano)
+        masks_path = os.path.join(panos_masks_path, pano)
 
         # Load the left, right, front, back masks path.
         # If they don't exist, make a 512x512 black image and save it in the folder.
@@ -214,7 +214,7 @@ def backproject_masks(args, directory):
         back_path = os.path.join(masks_path, 'back.png')
         top_path = os.path.join(masks_path, 'top.png')
         bottom_path = os.path.join(masks_path, 'bottom.png')
-        if not os.path.exists(left_path):
+        '''if not os.path.exists(left_path):
             left = Image.new('RGB', (512, 512), (0, 0, 0))
             left.save(left_path)
         if not os.path.exists(right_path):
@@ -225,7 +225,7 @@ def backproject_masks(args, directory):
             front.save(front_path)
         if not os.path.exists(back_path):
             back = Image.new('RGB', (512, 512), (0, 0, 0))
-            back.save(back_path)
+            back.save(back_path)'''
         if not os.path.exists(top_path):
             top = Image.new('RGB', (512, 512), (0, 0, 0))
             top.save(top_path)
@@ -239,7 +239,7 @@ def backproject_masks(args, directory):
         eq = vrProjector.EquirectangularProjection()
         eq.initImage(2000, 1000)
         eq.reprojectToThis(source)
-        eq.saveImage(os.path.join(pano_path, f'{pano}.png'))
+        eq.saveImage(os.path.join(backproject_pano_path, f'{pano}.png'))
 
         # Delete the bottom,top,front,back images
         #os.remove(top_path)
@@ -250,7 +250,7 @@ def backproject_masks(args, directory):
         #os.remove(back_path)
 
         # Convert the masks to panorama sizes ones
-        pano_masks = find_masks(pano_path, pano)
+        pano_masks = find_masks(masks_path, pano)
 
         # original_image_path = os.path.join(os.path.dirname(args.input_dir), 'reoriented', pano)
 

@@ -55,7 +55,7 @@ def reproject_panos(args):
     print('Number of reoriented panos: {}'.format(len(img_list)))
 
     # Define output directory
-    directory = os.path.join(os.path.dirname(args.input_dir), 'reprojected')
+    directory = os.path.join(os.path.dirname(args.input_dir), args.output_dir)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -93,12 +93,17 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
+    if args.seg:
+        reoriented_folder = 'reoriented_seg'
+    else:
+        reoriented_folder = 'reoriented'
+
     if args.ps:
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+        args.input_dir = os.path.join(args.input_dir, reoriented_folder)
     else:
         args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
         args.input_dir = args.input_dir + '_' + args.quality
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+        args.input_dir = os.path.join(args.input_dir, reoriented_folder)
 
     reproject_panos(args)
 
@@ -111,6 +116,8 @@ if __name__ == '__main__':
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--size', type=int, default = 512)
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--seg', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--output_dir', type=str, default = 'reprojected_seg')
     
     args = parser.parse_args()
     

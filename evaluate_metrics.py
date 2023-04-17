@@ -514,7 +514,8 @@ def evaluate(args, directory):
     print('Number of labels in other_labels_df after filtering for obstacles: ', len(other_labels_df))
 
     # Load masks from .json file
-    json_path = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
+    folder_name = 'backprojected_seg' if args.seg else 'backprojected'
+    json_path = os.path.join(os.path.dirname(args.input_dir), folder_name)
     json_path = os.path.join(json_path, 'input_coco_format.json')
     with open(json_path) as f:
         data = json.load(f)
@@ -592,7 +593,8 @@ def main(args):
         args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
     # Create the output directory if it doesn't exist
-    directory = os.path.join(os.path.dirname(args.input_dir), 'evaluation')
+    directory_name = 'evaluation_seg' if args.seg else 'evaluation'
+    directory = os.path.join(os.path.dirname(args.input_dir), directory_name)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -609,6 +611,7 @@ if __name__ == '__main__':
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--seg', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

@@ -168,7 +168,7 @@ def backproject_masks(args, directory):
         input_coco_format = []
 
     # The panos we want to process are the ones we have their masks
-    panos_masks_path = os.path.join(os.path.dirname(args.input_dir), 'masks')
+    panos_masks_path = os.path.join(os.path.dirname(args.input_dir), args.masks_dir)
     print(f'Looking for masks in {panos_masks_path}')
     panos = os.listdir(panos_masks_path)
 
@@ -315,7 +315,9 @@ def main(args):
         args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
     # Create the output directory if it doesn't exist
-    directory = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
+    folder_name = os.path.join(args.input_dir, 'backprojected') \
+        if args.masks_dir == 'masks' else os.path.join(args.input_dir, 'backprojected_seg')
+    directory = os.path.join(os.path.dirname(args.input_dir), folder_name)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -331,6 +333,7 @@ if __name__ == '__main__':
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--masks_dir', type=str, default='masks')
 
     args = parser.parse_args()
 

@@ -116,11 +116,30 @@ def orient_panos(args):
 
     return
 
+def remove_panos_without_metadata(args):
+    '''Remove the images that have not been reoriented because they don't have heading information'''
+    len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+    print(f'There are {len_folder} reoriented images in the folder')
+    # Open reoriented_panos.csv and collect the list of pano_id that have been reoriented
+    reoriented_csv = pd.read_csv(os.path.join(args.input_dir, 'reoriented_panos.csv'))
+    reoriented_list = reoriented_csv['pano_id'].tolist()
+
+    print(f'There are {len(reoriented_list)} reoriented images in the reoriented_panos.csv file')
+
+    # Remove using os the images that are not in the reoriented_panos.csv
+    for pano in os.listdir(os.path.join(args.input_dir, 'reoriented')):
+        if pano.split('.')[0] not in reoriented_list:
+            os.remove(os.path.join(args.input_dir, 'reoriented', pano))
+    new_len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+    print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
+
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
     
     orient_panos(args)
+    # Remove reoriented panos that don't have heading information
+    remove_panos_without_metadata(args)
     return
 
 if __name__ == '__main__':

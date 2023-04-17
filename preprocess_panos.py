@@ -205,11 +205,13 @@ def save_reoriented_panos(args):
 
     # Filter the rows based on the image names collection
     filtered_df_panos = df_panos[df_panos['pano_id'].isin(image_names)]
+    # Remove duplicates based on the pano_id column
+    filtered_df_panos = filtered_df_panos.drop_duplicates(subset=['pano_id'])
 
     # Save the filtered dataframe to a new .csv file in image_folder_path
     filtered_df_panos.to_csv(f'{image_folder_path}/reoriented_panos.csv', index=False)
 
-    print("Filtered .csv file saved as 'reoriented_panos.csv'")
+    print(f"reoriented_panos.csv saved in {image_folder_path}")
 
 
 def main(args):

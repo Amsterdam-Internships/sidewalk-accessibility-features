@@ -479,7 +479,7 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
 
             if args.visualize:
                 # Probability of visualization: 10% of the panos
-                if random.random() <= 0.1:
+                if random.random() >= 0.1:
                     continue
                 else:
                     visualization_path = os.path.join(directory, 'visualized')

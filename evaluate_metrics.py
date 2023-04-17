@@ -451,7 +451,7 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
                 continue
             cp_mean_distance = np.mean(cp_distances) # mean between all masks and points, closest points only
             # Metrics 1.1: (average) mask-to-closest-anchor-point distance
-            ap_distances, closest_anchors, ap_gt_indices = mask_to_point_distance(gt_points, pred_masks, False)
+            ap_distances, closest_anchors, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
             ap_mean_distance = np.mean(ap_distances) # mean between all masks and points, anchors only
             # Metrics 2: point-to-mask best IoU
             best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)

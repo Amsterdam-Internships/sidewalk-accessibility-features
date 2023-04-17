@@ -52,6 +52,8 @@ def split(args, img_path, directory):
 def reproject_panos(args):
     # Define list of images in the input directory
     img_list = os.listdir(args.input_dir)
+    # Remove extension from image names in img_list
+    img_list = [img.split('.')[0] for img in img_list]
     print('Number of reoriented panos: {}'.format(len(img_list)))
 
     # Define output directory

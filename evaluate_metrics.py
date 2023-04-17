@@ -217,6 +217,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
     distances = []
     points = []
     gt_indices = []
+    is_empty = False
 
     for idx, pred_mask in enumerate(pred_masks):
         if pred_mask.ndim == 2:  # Check if the mask is 2D
@@ -238,7 +239,12 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, mask_coords)
 
-                local_min_distance_idx = np.argmin(dist)
+                try:
+                    local_min_distance_idx = np.argmin(dist)
+                except:
+                    print('Mask is empty.')
+                    is_empty = True
+                    break
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
@@ -262,7 +268,12 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, mask_coords)
 
-                local_min_distance_idx = np.argmin(dist)
+                try:
+                    local_min_distance_idx = np.argmin(dist)
+                except:
+                    print('Mask is empty.')
+                    is_empty = True
+                    break
                 local_min_distance = dist[0, local_min_distance_idx]
 
                 if local_min_distance < min_distance:
@@ -273,7 +284,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
             points.append(anchor_point)
             gt_indices.append(gt_point_index)
 
-    return distances, points, gt_indices
+    return distances, points, gt_indices, is_empty
 
 def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     best_ious = []
@@ -432,9 +443,12 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)
             n_masks = len(panos[pano])
+
             # Compute metrics
             # Metrics 1: (average) mask-to-closest-point distance
-            cp_distances, closest_points, cp_gt_indices = mask_to_point_distance(gt_points, pred_masks, True)
+            cp_distances, closest_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
+            if is_empty:
+                continue
             cp_mean_distance = np.mean(cp_distances) # mean between all masks and points, closest points only
             # Metrics 1.1: (average) mask-to-closest-anchor-point distance
             ap_distances, closest_anchors, ap_gt_indices = mask_to_point_distance(gt_points, pred_masks, False)

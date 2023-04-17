@@ -64,8 +64,9 @@ def reproject_panos(args):
     # Check if we already projected images in the output directory. If so, remove them from the list
     # Check also if there are 4 files inside the directory, if not, don't remove it from the list
     for img in img_list:
-        if os.path.exists(os.path.join(directory, img)):
-            if len(os.listdir(os.path.join(directory, img))) == 4:
+        img_name = img.split('.')[0]
+        if os.path.exists(os.path.join(directory, img_name)):
+            if len(os.listdir(os.path.join(directory, img_name))) == 4:
                 img_list.remove(img)
 
     print('Number of panos after filtering: {}'.format(len(img_list)))

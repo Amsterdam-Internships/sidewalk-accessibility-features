@@ -266,15 +266,9 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
 
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
-                dist = cdist(point_coords, mask_coords)
+                dist = cdist(point_coords, anchor_point.reshape(1, -1))  # Calculate distance to anchor_point
 
-                try:
-                    local_min_distance_idx = np.argmin(dist)
-                except:
-                    print('Mask is empty.')
-                    is_empty = True
-                    break
-                local_min_distance = dist[0, local_min_distance_idx]
+                local_min_distance = dist[0, 0]
 
                 if local_min_distance < min_distance:
                     min_distance = local_min_distance

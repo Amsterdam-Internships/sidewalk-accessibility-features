@@ -206,8 +206,8 @@ def save_reoriented_panos(args):
     # Filter the rows based on the image names collection
     filtered_df_panos = df_panos[df_panos['pano_id'].isin(image_names)]
 
-    # Save the filtered dataframe to a new .csv file
-    filtered_df_panos.to_csv('reoriented_panos.csv', index=False)
+    # Save the filtered dataframe to a new .csv file in image_folder_path
+    filtered_df_panos.to_csv(f'{image_folder_path}/reoriented_panos.csv', index=False)
 
     print("Filtered .csv file saved as 'reoriented_panos.csv'")
 

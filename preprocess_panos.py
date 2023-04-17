@@ -14,6 +14,7 @@ from tqdm import tqdm
 from PIL import Image
 import concurrent.futures
 import psutil
+import pandas as pd
 
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
@@ -187,6 +188,29 @@ def scrape_metadata(args):
 
     print(f'Done! panos_coords.csv saved in {args.input_dir}.')
 
+def save_reoriented_panos(args):
+    # Change the folder path to your desired folder
+    image_folder_path = os.path.join(args.input_dir, 'reoriented')
+
+    # Collect the names of the images without the extension
+    image_names = []
+    for file in os.listdir(image_folder_path):
+        file_name, file_extension = os.path.splitext(file)
+        if file_extension.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+            image_names.append(file_name)
+
+    # Read the .csv file
+    panos_csv = f'{args.input_dir}/panos.csv'
+    df_panos = pd.read_csv(panos_csv)
+
+    # Filter the rows based on the image names collection
+    filtered_df_panos = df_panos[df_panos['pano_id'].isin(image_names)]
+
+    # Save the filtered dataframe to a new .csv file
+    filtered_df_panos.to_csv('reoriented_panos.csv', index=False)
+
+    print("Filtered .csv file saved as 'reoriented_panos.csv'")
+
 
 def main(args):
     # DownloadRunner.py downloads each pano inside a folder. We need to move
@@ -201,6 +225,9 @@ def main(args):
 
     # Reorient the panos
     subprocess.run(["python", "reorient_panos.py", f'--input_dir={args.input_dir}'])
+
+    # Create a .csv file with the reoriented panos
+    save_reoriented_panos(args)
 
 
 if __name__ == '__main__':

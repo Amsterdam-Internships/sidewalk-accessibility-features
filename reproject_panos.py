@@ -27,7 +27,11 @@ def split(args, img_path, directory):
     # VrProjector the images 
     size = args.size
     eq = vrProjector.EquirectangularProjection()
-    eq.loadImage(img)
+    try:
+        eq.loadImage(img)
+    except FileNotFoundError:
+        print(f'File {img} not found')
+        return
     cb = vrProjector.CubemapProjection()
     cb.initImages(size,size)
     cb.reprojectToThis(eq)

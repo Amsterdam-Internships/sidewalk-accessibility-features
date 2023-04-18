@@ -211,9 +211,9 @@ def save_reoriented_panos(args):
     filtered_df_panos = filtered_df_panos.drop_duplicates(subset=['pano_id'])
 
     # Save the filtered dataframe to a new .csv file in image_folder_path
-    filtered_df_panos.to_csv(f'{image_folder_path}/reoriented_panos.csv', index=False)
+    filtered_df_panos.to_csv(f'{args.input_dir}/reoriented_panos.csv', index=False)
 
-    print(f"reoriented_panos.csv saved in {image_folder_path}")
+    print(f"reoriented_panos.csv saved in {args.input_dir}")
 
 
 def main(args):

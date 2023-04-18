@@ -54,7 +54,7 @@ def split(args, img_path, directory):
     back.save(os.path.join(directory, 'back.png'))
     left.save(os.path.join(directory, 'left.png'))
 
-def reproject_panos(args):
+def reproject_panos(args, root_dir):
     # Define list of images in the input directory, skip other formats
     img_list = [img for img in os.listdir(args.input_dir) if img.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))]
     print('Number of reoriented panos: {}'.format(len(img_list)))
@@ -116,18 +116,20 @@ def reproject_panos(args):
         # Create a new DataFrame with the folder names and the header
         df = pd.DataFrame(panos, columns=['pano_id'])
 
+    # Take the base of args.input_dir
+
     # Save the DataFrame to the .csv file
-    df_path = os.path.join(directory, csv_file)
+    df_path = os.path.join(root_dir, csv_file)
     df.to_csv(df_path, index=False)
 
     print(f"Reprojected panos saved to '{df_path}'.")
 
-    
-    
     return
 
 
 def main(args):
+
+    root_dir = args.input_dir
 
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
@@ -144,7 +146,7 @@ def main(args):
         args.input_dir = args.input_dir + '_' + args.quality
         args.input_dir = os.path.join(args.input_dir, reoriented_folder)
 
-    reproject_panos(args)
+    reproject_panos(args, root_dir)
 
 if __name__ == '__main__':
 

@@ -15,6 +15,7 @@ import lib.vrProjector as vrProjector
 import time
 import argparse
 import pandas as pd
+import shutil
 
 import numpy as np
 from PIL import Image
@@ -63,6 +64,13 @@ def reproject_panos(args, root_dir):
     directory = os.path.join(os.path.dirname(args.input_dir), args.output_dir)
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+    # Remove reprojected images that are not in img_list
+    for entry in os.scandir(directory):
+        if entry.is_dir():
+            if entry.name not in img_list:
+                shutil.rmtree(entry.path, ignore_errors=True)
+    print(f'Number of already reprojected panos: {len(os.listdir(directory))}')
 
     # Check if we already projected images in the output directory. If so, remove them from the list
     # Check also if there are 4 files inside the directory, if not, don't remove it from the list
@@ -115,8 +123,6 @@ def reproject_panos(args, root_dir):
     else:
         # Create a new DataFrame with the folder names and the header
         df = pd.DataFrame(panos, columns=['pano_id'])
-
-    # Take the base of args.input_dir
 
     # Save the DataFrame to the .csv file
     df_path = os.path.join(root_dir, csv_file)

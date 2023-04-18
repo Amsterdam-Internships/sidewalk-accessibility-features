@@ -73,8 +73,12 @@ def reproject_panos(args, root_dir):
     # Remove reprojected images that are not in img_list
     for entry in os.scandir(directory):
         if entry.is_dir():
-            if entry.name not in img_list_copy:
+            # Remove the file extension from the image name
+            img_list_names_without_ext = [os.path.splitext(img_name)[0] for img_name in img_list_copy]
+
+            if entry.name not in img_list_names_without_ext:
                 shutil.rmtree(entry.path, ignore_errors=True)
+                
     print(f'Number of already reprojected panos: {len(os.listdir(directory))}')
 
     # Check if we already projected images in the output directory. If so, remove them from the list

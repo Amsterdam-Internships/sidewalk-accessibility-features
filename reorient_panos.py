@@ -121,7 +121,7 @@ def remove_panos_without_metadata(args):
     len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
     print(f'There are {len_folder} reoriented images in the folder')
     # Open reoriented_panos.csv and collect the list of pano_id that have been reoriented
-    reoriented_csv = pd.read_csv(os.path.join(args.input_dir, 'reoriented', 'reoriented_panos.csv'))
+    reoriented_csv = pd.read_csv(os.path.join(args.input_dir, 'reoriented_panos.csv'))
     reoriented_list = reoriented_csv['pano_id'].tolist()
 
     print(f'There are {len(reoriented_list)} reoriented images in the reoriented_panos.csv file')

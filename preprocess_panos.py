@@ -25,7 +25,9 @@ def move_panos_to_root(input_dir):
         folderpath = os.path.join(input_dir, foldername)
 
         # Skip any non-folder items in the source folder and any of the folders reoriented, reprojected, masks, backprojected
-        if not os.path.isdir(folderpath) or foldername in ['reoriented','reprojected','masks','backprojected','evaluation']:
+        if not os.path.isdir(folderpath) or foldername in ['reoriented','reprojected','masks','backprojected','evaluation', \
+                                                           'ground_seg_outputs', 'reoriented_seg', 'reprojected_seg', 'masks_seg', \
+                                                            'backprojected_seg', 'evaluation_seg']:
             continue
 
         # Loop through each file in the folder

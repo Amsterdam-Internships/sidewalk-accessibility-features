@@ -14,6 +14,7 @@ import concurrent.futures
 import lib.vrProjector as vrProjector
 import time
 import argparse
+import pandas as pd
 
 import numpy as np
 from PIL import Image
@@ -88,8 +89,41 @@ def reproject_panos(args):
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
         list(tqdm(executor.map(reproject_image, img_list), total=len(img_list)))
-    
+
     print(f'Done reprojecting {len(img_list)} images!')
+
+    print(f'Saving .csv file with reprojected panos names...')
+
+    csv_file = 'reprojected_panos.csv'
+
+    panos = []
+
+    # Iterate through the folders in the directory and collect their names
+    for entry in os.scandir(directory):
+        if entry.is_dir():
+            panos.append(entry.name)
+
+    # Check if the .csv file exists
+    if os.path.exists(csv_file):
+        # Read the existing .csv file
+        df = pd.read_csv(csv_file)
+        
+        # Append the new folder names only if they are not already present
+        for pano in panos:
+            if pano not in df['pano_id'].values:
+                df = df.append({'pano_id': pano}, ignore_index=True)
+    else:
+        # Create a new DataFrame with the folder names and the header
+        df = pd.DataFrame(panos, columns=['pano_id'])
+
+    # Save the DataFrame to the .csv file
+    df_path = os.path.join(directory, csv_file)
+    df.to_csv(df_path, index=False)
+
+    print(f"Reprojected panos saved to '{df_path}'.")
+
+    
+    
     return
 
 

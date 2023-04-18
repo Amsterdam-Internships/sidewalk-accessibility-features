@@ -55,8 +55,8 @@ def split(args, img_path, directory):
     left.save(os.path.join(directory, 'left.png'))
 
 def reproject_panos(args):
-    # Define list of images in the input directory
-    img_list = os.listdir(args.input_dir)
+    # Define list of images in the input directory, skip other formats
+    img_list = [img for img in os.listdir(args.input_dir) if img.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))]
     print('Number of reoriented panos: {}'.format(len(img_list)))
 
     # Define output directory

@@ -14,7 +14,14 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     image_copy = np.copy(image)
 
     # Load the masks as an image
+    # Mask size: 2325 × 1162
     masks = cv2.imread(masks_path)
+    print(f'Mask shape before: {masks.shape}')
+
+    # Resize the masks image to match the input image dimensions (INTER_AREA should work best for downsampling)
+    masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
+    print(f'Mask shape after: {masks.shape}')
+    print(f'Image shape: {image.shape}')
 
     # Iterate through the JSON data and find the labels to blacken
     for item in json_data:
@@ -27,7 +34,8 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
             image_copy[binary_mask] = 0
 
     # Save the modified image
-    cv2.imwrite(output_image_path, image_copy)    
+    cv2.imwrite(output_image_path, image_copy)
+
 
 
 def main(args):

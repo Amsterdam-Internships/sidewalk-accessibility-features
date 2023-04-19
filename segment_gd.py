@@ -33,6 +33,22 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     image_copy = np.copy(image)
 
     # Load the masks as an image
+    masks = cv2.imread(masks_path)
+    masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
+    masks_rgb = cv2.cvtColor(masks, cv2.COLOR_BGR2RGB)  # Convert to RGB
+    masks_gray = cv2.cvtColor(masks_rgb, cv2.COLOR_RGB2GRAY)  # Convert to grayscale
+
+    masked_pano = apply_mask(image_copy, masks_gray, json_data, labels_to_blacken)
+
+    # Save the modified image
+    cv2.imwrite(output_image_path, masked_pano)
+'''def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path):
+    # Load the panoramic image and create a copy
+    image = cv2.imread(input_image_path)
+    image_copy = np.copy(image)
+    
+
+    # Load the masks as an image
     # Mask size: 2325 × 1162
     masks = cv2.imread(masks_path)
 
@@ -42,7 +58,7 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     masked_pano = apply_mask(image_copy, masks, json_data, labels_to_blacken)
 
     # Save the modified image
-    cv2.imwrite(output_image_path, masked_pano)
+    cv2.imwrite(output_image_path, masked_pano)'''
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase

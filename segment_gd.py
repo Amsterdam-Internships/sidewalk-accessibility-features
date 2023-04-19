@@ -25,14 +25,19 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
         # Clean up the label by removing any non-alphanumeric characters
         cleaned_label = re.sub(r'\W+', '', item['label'])
 
-        if cleaned_label in labels_to_blacken:
-            # Create a binary mask using the color information
-            color = np.array(item['color']) * 255
-            binary_mask = np.isclose(masks, color, rtol=1e-5, atol=1e-8)
-            binary_mask = np.all(binary_mask, axis=-1)
+        for item in json_data:
+            # Clean up the label by removing any non-alphanumeric characters
+            cleaned_label = re.sub(r'\W+', '', item['label'])
 
-            # Blacken the area in the copied image where the binary mask is True
-            image_copy[binary_mask] = 0
+            if cleaned_label in labels_to_blacken:
+                # Create a binary mask using the color information
+                color = np.array(item['color']) * 255
+                lower_bound = np.array(color - 1, dtype=np.uint8)
+                upper_bound = np.array(color + 1, dtype=np.uint8)
+                binary_mask = cv2.inRange(masks, lower_bound, upper_bound)
+
+                # Blacken the area in the copied image where the binary mask is True
+                image_copy[binary_mask == 255] = 0
     
     # Save the modified image
     cv2.imwrite(output_image_path, image_copy)

@@ -89,6 +89,10 @@ def main(args):
     root_folder = os.path.dirname(input_folder)
     output_folder = os.path.join(root_folder, 'reoriented_seg')
 
+    # Create the output folder if it does not exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
     # List all subfolders in the input folder
     subfolders = [os.path.join(input_folder, d) for d in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, d))]
 

@@ -32,13 +32,9 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
 
             # Multiply the binary mask with the copied image
             image_copy[binary_mask] = 0
-
-    # Just for testing, open the image with cv2 without saving it
-    cv2.imshow("image", image_copy)
-    cv2.waitKey(0)
     
     # Save the modified image
-    #cv2.imwrite(output_image_path, image_copy)
+    cv2.imwrite(output_image_path, image_copy)
 
 
 

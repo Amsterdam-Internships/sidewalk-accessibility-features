@@ -36,6 +36,7 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     # Load the masks as an image
     # Mask size: 2325 × 1162
     masks = cv2.imread(masks_path, cv2.IMREAD_GRAYSCALE)
+    masks = cv2.cvtColor(masks, cv2.COLOR_BGR2GRAY)
 
     # Resize the masks image to match the input image dimensions (INTER_AREA should work best for downsampling)
     masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)

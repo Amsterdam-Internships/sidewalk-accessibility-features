@@ -8,43 +8,50 @@ import concurrent.futures
 import psutil
 from tqdm import tqdm
 
-def find_label_indices(json_data, target_labels):
-    indices = []
-    for i, item in enumerate(json_data):
-        label = re.sub(r'\W+', '', item['label'])
-        if label in target_labels:
-            indices.append(i)
-    return indices
+from PIL import Image
 
-def apply_mask(pano_image, mask_image, json_data, target_label):
-    target_label_indices = find_label_indices(json_data, target_label)
-    masked_pano = pano_image.copy()
+def segment_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path):
 
-    for idx in target_label_indices:
-        mask_value = json_data[idx]["value"]
-        blackened_pixels = (mask_image == mask_value)
-        masked_pano[blackened_pixels] = 0
+    masks = []
+    labels = []
 
-    return masked_pano
-
-def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path):
-    # Load the panoramic image and create a copy
-    image = cv2.imread(input_image_path)
-    image_copy = np.copy(image)
+    original_image_path = input_image_path
+    original_image = Image.open(original_image_path)
     
+    # Loop through the json file and collect the labels. Each instance has a key "label" with the label name
+    for instance in json_data:
+        if instance["label"] not in labels and instance["label"] != "background":
+            labels.append(instance["label"])
 
-    # Load the masks as an image
-    # Mask size: 2325 × 1162
-    masks = cv2.imread(masks_path, cv2.IMREAD_GRAYSCALE)
-    masks = cv2.cvtColor(masks, cv2.COLOR_BGR2GRAY)
+    # Check to remove labels not in labels_to_blacken
+    labels = [label for label in labels if label in labels_to_blacken]
 
-    # Resize the masks image to match the input image dimensions (INTER_AREA should work best for downsampling)
-    masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
+    for label in labels:
+        mask_path = f'{label}_{masks_path}'
+        mask = Image.open(mask_path)
+        mask_image = mask.resize(original_image.size).convert('L')  # Convert to grayscale
 
-    masked_pano = apply_mask(image_copy, masks, json_data, labels_to_blacken)
+        # Threshold the mask image to create a proper boolean mask
+        threshold = 128
+        mask_array = np.array(mask_image) > threshold
+        masks.append(mask_array)
+    
+    # Overlay the mask on the original image and black the pixels that are in the mask
+    for mask in masks:
+        # Extend the mask_bool array to cover all three color channels (R, G, B)
+        mask_bool = np.stack([mask, mask, mask], axis=-1)
 
-    # Save the modified image
-    cv2.imwrite(output_image_path, masked_pano)
+        # Convert the original image to a numpy array
+        original_image_array = np.array(original_image)
+
+        # Black the pixels that are in the mask using np.where
+        original_image_array = np.where(mask_bool, 0, original_image_array)
+
+        # Convert the array back to an image
+        original_image = Image.fromarray(original_image_array, 'RGB')
+
+    # Save the image in the same folder as the original image
+    original_image.save(output_image_path, "JPEG")
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
@@ -86,18 +93,18 @@ def main(args):
                 with open(json_path, "r") as json_file:
                     json_data = json.load(json_file)
 
-                blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path)
+                segment_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path)
         else:
             # Case 1: Process files without directions
             input_image_path = os.path.join(subfolder, f"raw_image_{subfolder_name}.jpg")
             masks_path = os.path.join(subfolder, f"mask_{subfolder_name}.jpg")
             json_path = os.path.join(subfolder, f"mask_{subfolder_name}.json")
-            output_image_path = os.path.join(output_folder, f"{subfolder_name}.jpg")
+            output_image_path = os.path.join(output_folder, f"masked_{subfolder_name}.jpg")
 
             with open(json_path, "r") as json_file:
                 json_data = json.load(json_file)
 
-            blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path)
+            segment_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path)
 
     # Define the input and output folders
     input_folder = args.input_dir

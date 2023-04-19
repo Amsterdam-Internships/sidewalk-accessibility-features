@@ -20,22 +20,18 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     # Resize the masks image to match the input image dimensions (INTER_AREA should work best for downsampling)
     masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
 
-    print(f'Labels to blacken: {labels_to_blacken}')
-
     # Iterate through the JSON data and find the labels to blacken
     for item in json_data:
         # Clean up the label by removing any non-alphanumeric characters
         cleaned_label = re.sub(r'\W+', '', item['label'])
-        print(f'Cleaned_label: {cleaned_label}')
 
         if cleaned_label in labels_to_blacken:
-            print(f'Blackening label: {cleaned_label}')
             # Create a binary mask using the color information
             color = np.array(item['color']) * 255
-            binary_mask = np.all(masks == color)
+            binary_mask = (masks == color)
 
-            # Multiply the binary mask with the copied image
-            image_copy[binary_mask] = 0
+            # Blacken the area in the copied image where the binary mask is True
+            image_copy[np.all(binary_mask, axis=-1)] = 0
     
     # Save the modified image
     cv2.imwrite(output_image_path, image_copy)

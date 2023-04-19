@@ -8,7 +8,26 @@ import concurrent.futures
 import psutil
 from tqdm import tqdm
 
-def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path, tolerance=1):
+def find_label_indices(json_data, target_labels):
+    indices = []
+    for i, item in enumerate(json_data):
+        label = re.sub(r'\W+', '', item['label'])
+        if label in target_labels:
+            indices.append(i)
+    return indices
+
+def apply_mask(pano_image, mask_image, json_data, target_label):
+    target_label_indices = find_label_indices(json_data, target_label)
+    masked_pano = pano_image.copy()
+
+    for idx in target_label_indices:
+        mask_value = json_data[idx]["value"]
+        blackened_pixels = (mask_image == mask_value)
+        masked_pano[blackened_pixels] = 0
+
+    return masked_pano
+
+def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path):
     # Load the panoramic image and create a copy
     image = cv2.imread(input_image_path)
     image_copy = np.copy(image)
@@ -20,23 +39,10 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     # Resize the masks image to match the input image dimensions (INTER_AREA should work best for downsampling)
     masks = cv2.resize(masks, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
 
-    # Iterate through the JSON data and find the labels to blacken
-    for item in json_data:
-        # Clean up the label by removing any non-alphanumeric characters
-        cleaned_label = re.sub(r'\W+', '', item['label'])
-
-        if cleaned_label in labels_to_blacken:
-            # Convert the color from the JSON to the same format as in the mask image
-            color = np.round(np.array(item['color']) * 255).astype(int)
-
-            # Create a binary mask using the color information within the specified tolerance range
-            binary_mask = np.all(np.isclose(masks, color, atol=tolerance), axis=-1)
-
-            # Multiply the binary mask with the copied image
-            image_copy[binary_mask] = 0
+    masked_pano = apply_mask(image_copy, masks, json_data, labels_to_blacken)
 
     # Save the modified image
-    cv2.imwrite(output_image_path, image_copy)
+    cv2.imwrite(output_image_path, masked_pano)
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase

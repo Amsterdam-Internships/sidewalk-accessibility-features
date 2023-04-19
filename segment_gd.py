@@ -32,7 +32,7 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
             print(f'Blackening label: {cleaned_label}')
             # Create a binary mask using the color information
             color = np.array(item['color']) * 255
-            binary_mask = np.all(masks == color, axis=-1)
+            binary_mask = np.all(masks == color)
 
             # Multiply the binary mask with the copied image
             image_copy[binary_mask] = 0

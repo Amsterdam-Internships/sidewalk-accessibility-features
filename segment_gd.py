@@ -8,7 +8,7 @@ import concurrent.futures
 import psutil
 from tqdm import tqdm
 
-def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path):
+def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, output_image_path, tolerance=1):
     # Load the panoramic image and create a copy
     image = cv2.imread(input_image_path)
     image_copy = np.copy(image)
@@ -25,22 +25,18 @@ def blacken_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
         # Clean up the label by removing any non-alphanumeric characters
         cleaned_label = re.sub(r'\W+', '', item['label'])
 
-        # Iterate through the JSON data and find the labels to blacken
-        for item in json_data:
-            # Clean up the label by removing any non-alphanumeric characters
-            cleaned_label = re.sub(r'\W+', '', item['label'])
+        if cleaned_label in labels_to_blacken:
+            # Convert the color from the JSON to the same format as in the mask image
+            color = np.round(np.array(item['color']) * 255).astype(int)
 
-            if cleaned_label in labels_to_blacken:
-                # Create a binary mask with the corresponding value from the JSON
-                binary_mask = (masks == item['value'])
+            # Create a binary mask using the color information within the specified tolerance range
+            binary_mask = np.all(np.isclose(masks, color, atol=tolerance), axis=-1)
 
-                # Blacken the area in the copied image where the binary mask is True
-                image_copy[binary_mask] = 0
-    
+            # Multiply the binary mask with the copied image
+            image_copy[binary_mask] = 0
+
     # Save the modified image
     cv2.imwrite(output_image_path, image_copy)
-
-
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase

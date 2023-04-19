@@ -27,7 +27,10 @@ def segment_labels(input_image_path, masks_path, json_data, labels_to_blacken, o
     labels = [label for label in labels if label in labels_to_blacken]
 
     for label in labels:
-        mask_path = f'{label}_{masks_path}'
+        # Split mask_path between the root and the image name
+        path, mask_name = os.path.split(masks_path)
+        mask_name = f'{label}_{mask_name}'
+        mask_path = os.path.join(path, mask_name)
         mask = Image.open(mask_path)
         mask_image = mask.resize(original_image.size).convert('L')  # Convert to grayscale
 

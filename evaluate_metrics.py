@@ -585,19 +585,28 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
+    reoriented_foldername = 'reoriented_seg' if args.seg else 'reoriented'
+
     if args.ps:
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+        args.input_dir = os.path.join(args.input_dir, reoriented_foldername)
     else:
         args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
         args.input_dir = args.input_dir + '_' + args.quality
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
+        args.input_dir = os.path.join(args.input_dir, reoriented_foldername)
 
     # Create the output directory if it doesn't exist
     directory_name = 'evaluation_seg' if args.seg else 'evaluation'
     directory = os.path.join(os.path.dirname(args.input_dir), directory_name)
 
+    if args.test:
+        args.input_dir += '_testset'
+        directory += '_testset'
+
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+    print('Input directory: ', args.input_dir)
+    print('Output directory: ', directory)
 
     evaluate(args, directory)
 
@@ -612,6 +621,7 @@ if __name__ == '__main__':
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--seg', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--test', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

@@ -307,23 +307,12 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
-    if args.ps:
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
-    else:
+    if not args.ps:
         args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
         args.input_dir = args.input_dir + '_' + args.quality
-        args.input_dir = os.path.join(args.input_dir, 'reoriented')
-
-    if args.test:
-        args.input_dir += '_testset'
     
     # Create the output directory if it doesn't exist
-    folder_name = os.path.join(args.input_dir, 'backprojected') \
-        if args.masks_dir == 'masks' else os.path.join(args.input_dir, 'backprojected_seg')
-    directory = os.path.join(os.path.dirname(args.input_dir), folder_name)
-
-    if args.test:
-        directory += '_testset'
+    directory = os.path.join(args.input_dir, args.backprojected_dir)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -343,8 +332,8 @@ if __name__ == '__main__':
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--backprojected_dir', type=str, default='backprojected')
     parser.add_argument('--masks_dir', type=str, default='masks')
-    parser.add_argument('--testset', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

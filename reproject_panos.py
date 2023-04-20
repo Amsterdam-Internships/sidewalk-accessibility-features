@@ -58,10 +58,11 @@ def split(args, img_path, directory):
 def reproject_panos(args, root_dir):
     # Define list of images in the input directory, skip other formats
     img_list = [img for img in os.listdir(args.input_dir) if img.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))]
-    print('Number of reoriented panos: {}'.format(len(img_list)))
+    print(f'Number of reoriented panos in {args.input_dir}: {len(img_list)}')
 
     # Define output directory
     directory = os.path.join(os.path.dirname(args.input_dir), args.output_dir)
+    print(f'Reprojected panos will be saved in {directory}...')
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -90,9 +91,7 @@ def reproject_panos(args, root_dir):
             if len(os.listdir(os.path.join(directory, img_name))) == 4:
                 img_list.remove(img)
 
-    print('Number of panos after filtering: {}'.format(len(img_list)))
-
-    print(f'Reprojecting panos in {args.input_dir}...')
+    print('Number of panos to project after filtering: {}'.format(len(img_list)))
     # Define the function to be executed in parallel
     def reproject_image(img):
         split(args, img, directory)
@@ -110,8 +109,11 @@ def reproject_panos(args, root_dir):
     print(f'Done reprojecting {len(img_list)} images!')
 
     print(f'Saving .csv file with reprojected panos names...')
-
-    csv_file = 'reprojected_panos.csv'
+    
+    if args.seg:
+        csv_file = 'reprojected_seg_panos.csv'
+    else:
+        csv_file = 'reprojected_panos.csv'
 
     panos = []
 

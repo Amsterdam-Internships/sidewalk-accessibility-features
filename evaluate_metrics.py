@@ -65,16 +65,25 @@ def visualize_labels(args, gt_points, pano_id, path):
     mask = plt.imread(mask_path)
 
     fig = plt.figure()
-    plt.imshow(image, cmap='gray')
-    plt.imshow(mask, cmap='jet', alpha=0.4)
+    ax = fig.add_subplot(111)
+    ax.imshow(image, cmap='gray')
+    ax.imshow(mask, cmap='jet', alpha=0.4)
 
     for gt_point in gt_points:
-        plt.scatter(gt_point[1], gt_point[0], color='red', s=10)
-    
+        ax.scatter(gt_point[1], gt_point[0], color='red', s=10)
+
+    # Set small tick labels
+    ax.tick_params(axis='both', which='both', labelsize=8)
+
+    # Add legend for red points
+    ax.scatter([], [], color='red', s=10, label='Ground Truth Points')
+    ax.legend(prop={'size': 8})
+
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}.png'), dpi=300, bbox_inches='tight')
     # Close the figure
     plt.close(fig)
+
 
 def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_indices, pano_id, path, cp=True):
     num_masks = len(pred_masks)

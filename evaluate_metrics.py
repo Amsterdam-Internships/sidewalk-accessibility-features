@@ -54,7 +54,7 @@ def get_xy_coords_ps_labels():
 def visualize_labels(args, gt_points, pano_id, path):
     # Load the image
     image_path = os.path.join(args.input_dir, pano_id)
-    backprojected_path = os.path.join(os.path.dirname(args.input_dir), 'backprojected')
+    backprojected_path = os.path.join(os.path.dirname(args.input_dir), args.backprojected_dir)
     mask_path = os.path.join(backprojected_path, f'{pano_id}/{pano_id}.png')
     # Depending on the machine, the path might be different
     # Try to load the image with and without the .jpg extension
@@ -514,8 +514,7 @@ def evaluate(args, directory):
     print('Number of labels in other_labels_df after filtering for obstacles: ', len(other_labels_df))
 
     # Load masks from .json file
-    folder_name = 'backprojected_seg' if args.seg else 'backprojected'
-    json_path = os.path.join(os.path.dirname(args.input_dir), folder_name)
+    json_path = os.path.join(os.path.dirname(args.input_dir), args.backprojected_dir)
     json_path = os.path.join(json_path, 'input_coco_format.json')
     with open(json_path) as f:
         data = json.load(f)
@@ -600,13 +599,15 @@ def main(args):
 
     if args.test:
         args.input_dir += '_testset'
+        args.backprojected_dir += '_testset'
         directory += '_testset'
 
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    print('Input directory: ', args.input_dir)
-    print('Output directory: ', directory)
+    print(f'Input directory: {args.input_dir}')
+    print(f'Backprojected directory: {args.backprojected_dir}')
+    print(f'Output directory: {directory}')
 
     evaluate(args, directory)
 
@@ -614,6 +615,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='res/dataset')
+    parser.add_argument('--backprojected_dir', type=str, default='backprojected')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--visualize', type=bool, default=False, action=argparse.BooleanOptionalAction)

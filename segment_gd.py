@@ -102,7 +102,8 @@ def main(args):
             input_image_path = os.path.join(subfolder, f"raw_image_{subfolder_name}.jpg")
             masks_path = os.path.join(subfolder, f"mask_{subfolder_name}.jpg")
             json_path = os.path.join(subfolder, f"mask_{subfolder_name}.json")
-            output_image_path = os.path.join(output_folder, f"masked_{subfolder_name}.jpg")
+            #output_image_path = os.path.join(output_folder, f"masked_{subfolder_name}.jpg")
+            output_image_path = os.path.join(output_folder, f"{subfolder_name}.jpg")
 
             with open(json_path, "r") as json_file:
                 json_data = json.load(json_file)

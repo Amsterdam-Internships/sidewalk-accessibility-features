@@ -519,6 +519,11 @@ def evaluate(args, directory):
     with open(json_path) as f:
         data = json.load(f)
 
+    if args.seg:
+        # Remove "masked_" from 'pano_id' in data
+        for instance in data:
+            instance['pano_id'] = instance['pano_id'].replace('masked_', '')
+
     # The structure of data is a list of dictionaries, with instance['pano_id'] as the panorama ID
     # and instance['segmentation'] as the corresponding masks.
     # We want to group the instances by pano_id, and then split the data into batches
@@ -598,7 +603,7 @@ def main(args):
     directory = os.path.join(os.path.dirname(args.input_dir), directory_name)
 
     if args.test:
-        args.input_dir += '_testset'
+        #args.input_dir += '_testset'
         args.backprojected_dir += '_testset'
         directory += '_testset'
 
@@ -618,7 +623,7 @@ if __name__ == '__main__':
     parser.add_argument('--backprojected_dir', type=str, default='backprojected')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
-    parser.add_argument('--visualize', type=bool, default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--visualize', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)

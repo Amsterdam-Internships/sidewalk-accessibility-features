@@ -78,7 +78,12 @@ def reproject_panos(args, root_dir):
             img_list_names_without_ext = [os.path.splitext(img_name)[0] for img_name in img_list_copy]
 
             if entry.name not in img_list_names_without_ext:
-                shutil.rmtree(entry.path, ignore_errors=True)
+                # Wait for user input to conferm deletion
+                print(f'Image {entry.name} is not in the list of reoriented images. Do you want to delete it?')
+                print('Press y to delete, any other key to skip')
+                user_input = input()
+                if user_input == 'y':
+                    shutil.rmtree(entry.path, ignore_errors=True)
                 
     print(f'Number of already reprojected panos: {len(os.listdir(directory))}')
 
@@ -109,7 +114,7 @@ def reproject_panos(args, root_dir):
     print(f'Done reprojecting {len(img_list)} images!')
 
     print(f'Saving .csv file with reprojected panos names...')
-    
+
     if args.seg:
         csv_file = 'reprojected_seg_panos.csv'
     else:
@@ -162,6 +167,9 @@ def main(args):
         args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
         args.input_dir = args.input_dir + '_' + args.quality
         args.input_dir = os.path.join(args.input_dir, reoriented_folder)
+
+    print(f'Input directory: {args.input_dir}')
+    print(f'Output directory: {args.output_dir}')
 
     reproject_panos(args, root_dir)
 

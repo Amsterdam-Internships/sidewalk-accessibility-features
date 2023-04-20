@@ -89,16 +89,21 @@ def visualize_labels(args, gt_points, pano_id, path):
 
 def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_indices, pano_id, path, cp=True):
     num_masks = len(pred_masks)
-    fig, axes = plt.subplots(num_masks, 1, figsize=(5, 3 * num_masks))
+    num_rows = int(np.ceil(num_masks / 2))
+    fig, axes = plt.subplots(num_rows, 2, figsize=(10, 3 * num_rows))
 
-    for idx, (pred_mask, ax) in enumerate(zip(pred_masks, axes)):
+    # Remove space between rows and adjust the space between title and first row
+    fig.subplots_adjust(hspace=0, top=0.9)
+
+    for idx, (pred_mask, (row_idx, col_idx)) in enumerate(zip(pred_masks, np.ndindex((num_rows, 2)))):
+        ax = axes[row_idx, col_idx]
         ax.imshow(pred_mask)  # Display the predicted mask
 
         # Retrieve the correct ground truth point, distance, and closest point
         gt_point = gt_points[gt_indices[idx]]
         distance = distances[idx]
         closest_point = closest_points[idx]
-        
+
         y, x = gt_point
         closest_y, closest_x = closest_point
 
@@ -109,6 +114,15 @@ def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_in
         # Put legend size to small
         ax.legend(loc='upper right', prop={'size': 6})
         ax.set_title(f"Closest mask-to-point distance for mask {idx + 1}")
+
+        # Display y-axis only on the left-most plot for each row
+        if col_idx != 0:
+            ax.set_yticklabels([])
+            ax.set_yticks([])
+
+    # Remove any unused plot axes
+    for i in range(num_rows * 2 - num_masks):
+        fig.delaxes(axes[num_rows - 1, 1 - i])
 
     plt.tight_layout()
     #plt.show()
@@ -121,10 +135,11 @@ def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_in
     fig.savefig(os.path.join(path, filename), dpi=300, bbox_inches='tight')
     plt.close(fig)
 
+
 def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, pano_id, path):
     num_masks = len(pred_masks)
     num_rows = int(np.ceil(num_masks / 2))
-    fig, axes = plt.subplots(num_rows, 2, figsize=(8, 4 * num_rows))
+    fig, axes = plt.subplots(num_rows, 2, figsize=(13, 4 * num_rows))
 
     # Remove space between rows and adjust the space between title and first row
     fig.subplots_adjust(hspace=0, top=0.9)
@@ -599,7 +614,7 @@ def evaluate(args, directory):
         # If the first row contains the header, don't write it again
         if os.stat(os.path.join(directory, f'avg_metrics_{args.threshold}_{args.radius}.csv')).st_size == 0:
             writer.writerow(['', 'avg_cp_distance', 'avg_ap_distance', 'avg_iou', \
-                             'cp_precision', 'ap_presion', 'cp_recall', 'ap_recall', \
+                             'cp_precision', 'ap_precision', 'cp_recall', 'ap_recall', \
                             'cp_f1', 'ap_f1', 'cp_ap', 'ap_ap', 'ap50', 'ap75'])
         # Write a row with the first element as 'Average', and the others as metrics_df['column']
         writer.writerow(['Average'] + list(metrics_df.mean()))

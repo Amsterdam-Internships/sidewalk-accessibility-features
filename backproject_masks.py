@@ -314,13 +314,23 @@ def main(args):
         args.input_dir = args.input_dir + '_' + args.quality
         args.input_dir = os.path.join(args.input_dir, 'reoriented')
 
+    if args.test:
+        args.input_dir += '_testset'
+    
     # Create the output directory if it doesn't exist
     folder_name = os.path.join(args.input_dir, 'backprojected') \
         if args.masks_dir == 'masks' else os.path.join(args.input_dir, 'backprojected_seg')
     directory = os.path.join(os.path.dirname(args.input_dir), folder_name)
 
+    if args.test:
+        directory += '_testset'
+
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+    print('Input directory: ', args.input_dir)
+    print('Masks directory: ', args.masks_dir)
+    print('Output directory: ', directory)
 
     #resize_masks(args, directory)
     backproject_masks(args, directory)
@@ -334,6 +344,7 @@ if __name__ == '__main__':
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--masks_dir', type=str, default='masks')
+    parser.add_argument('--testset', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

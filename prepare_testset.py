@@ -12,7 +12,7 @@ def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
         files2 = set(filter(lambda x: x.startswith('masked_') and x.endswith('.jpg'), os.listdir(input_dir2)))
         common_files = set([f for f in files1 if f'masked_{f}' in files2])
     else:
-        common_files = set(os.listdir(input_dir1)).intersection(set(os.listdir(input_dir2)))
+        common_files = set(os.listdir(input_dir1)).intersection(set([f[len('masked_'):] for f in os.listdir(input_dir2) if f.startswith('masked_')]))
 
     if len(common_files) < size:
         raise ValueError("Not enough common items to satisfy the requested size.")
@@ -31,7 +31,7 @@ def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
             shutil.copy(os.path.join(input_dir2, f'masked_{item}'), os.path.join(output_dir2, f'masked_{item}'))
         else:
             shutil.copytree(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
-            shutil.copytree(os.path.join(input_dir2, item), os.path.join(output_dir2, item))
+            shutil.copytree(os.path.join(input_dir2, f'masked_{item}'), os.path.join(output_dir2, f'masked_{item}'))
 
     print(f"Testsets created successfully with {size} common items in {output_dir1} and {output_dir2}.")
 

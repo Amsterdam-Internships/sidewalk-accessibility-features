@@ -5,14 +5,15 @@ from random import sample, seed
 from tqdm import tqdm
 
 def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
+    print(f"Creating testsets with {size} common items from {input_dir1} and {input_dir2}...")
+
     seed(random_seed)
 
     if reorient:
-        files1 = set(filter(lambda x: x.endswith('.jpg'), os.listdir(input_dir1)))
-        files2 = set(filter(lambda x: x.startswith('masked_') and x.endswith('.jpg'), os.listdir(input_dir2)))
-        common_files = set([f for f in files1 if f'masked_{f}' in files2])
+        common_files = set(filter(lambda x: x.endswith('.jpg'), \
+                    os.listdir(input_dir1))).intersection(set(filter(lambda x: x.endswith('.jpg'), os.listdir(input_dir2))))
     else:
-        common_files = set(os.listdir(input_dir1)).intersection(set([f[len('masked_'):] for f in os.listdir(input_dir2) if f.startswith('masked_')]))
+        common_files = set(os.listdir(input_dir1)).intersection(set(os.listdir(input_dir2)))
 
     if len(common_files) < size:
         raise ValueError("Not enough common items to satisfy the requested size.")
@@ -25,15 +26,16 @@ def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
     os.makedirs(output_dir1, exist_ok=True)
     os.makedirs(output_dir2, exist_ok=True)
 
-    for item in tqdm(selected_files):
+    for item in selected_files:
         if reorient:
             shutil.copy(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
-            shutil.copy(os.path.join(input_dir2, f'masked_{item}'), os.path.join(output_dir2, f'masked_{item}'))
+            shutil.copy(os.path.join(input_dir2, item), os.path.join(output_dir2, item))
         else:
             shutil.copytree(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
-            shutil.copytree(os.path.join(input_dir2, f'masked_{item}'), os.path.join(output_dir2, f'masked_{item}'))
+            shutil.copytree(os.path.join(input_dir2, item), os.path.join(output_dir2, item))
 
     print(f"Testsets created successfully with {size} common items in {output_dir1} and {output_dir2}.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare testset folders from input directories.")

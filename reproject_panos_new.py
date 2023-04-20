@@ -112,12 +112,9 @@ def reproject_panos(args, root_dir):
 
     print(f'Done reprojecting {len(img_list)} images!')
 
-    print(f'Saving .csv file with reprojected panos names...')
+    csv_file = f'{args.output_dir}_panos.csv'
 
-    if args.seg:
-        csv_file = 'reprojected_seg_panos.csv'
-    else:
-        csv_file = 'reprojected_panos.csv'
+    print(f'Saving .csv file with reprojected panos names as {csv_file}...')
 
     panos = []
 

@@ -168,7 +168,7 @@ def backproject_masks(args, directory):
         input_coco_format = []
 
     # The panos we want to process are the ones we have their masks
-    panos_masks_path = os.path.join(os.path.dirname(args.input_dir), args.masks_dir)
+    panos_masks_path = os.path.join(args.input_dir, args.masks_dir)
     print(f'Looking for masks in {panos_masks_path}')
     panos = os.listdir(panos_masks_path)
 

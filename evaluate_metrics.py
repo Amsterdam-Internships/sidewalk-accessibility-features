@@ -70,14 +70,16 @@ def visualize_labels(args, gt_points, pano_id, path):
     ax.imshow(mask, cmap='jet', alpha=0.4)
 
     for gt_point in gt_points:
-        ax.scatter(gt_point[1], gt_point[0], color='red', s=10)
+        ax.scatter(gt_point[1], gt_point[0], color='red', s=8)
 
     # Set small tick labels
-    ax.tick_params(axis='both', which='both', labelsize=8)
+    ax.tick_params(axis='both', which='both', labelsize=6)
+    # No ticks
+    ax.set_xticks([])
 
     # Add legend for red points
-    ax.scatter([], [], color='red', s=10, label='Ground Truth Points')
-    ax.legend(prop={'size': 8})
+    ax.scatter([], [], color='red', s=8, label='Ground Truth')
+    ax.legend(prop={'size': 5})
 
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}.png'), dpi=300, bbox_inches='tight')
@@ -124,6 +126,9 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(8, 4 * num_rows))
 
+    # Remove space between rows and adjust the space between title and first row
+    fig.subplots_adjust(hspace=0, top=0.9)
+
     # Generate a grid of coordinates for the entire image
     y_coords, x_coords = np.indices(pred_masks[0].shape)
     coords = np.column_stack((y_coords.ravel(), x_coords.ravel()))
@@ -153,6 +158,11 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
         # Set the plot title
         axes[row_idx, col_idx].set_title(f"Mask {idx + 1}", fontsize='medium')
         axes[row_idx, col_idx].legend()
+
+        # Display y-axis only on the left-most plot for each row
+        if col_idx != 0:
+            axes[row_idx, col_idx].set_yticklabels([])
+            axes[row_idx, col_idx].set_yticks([])
 
     # Set the figure title
     fig.suptitle("Best dilated ground truth point and masks")
@@ -511,6 +521,9 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
                                             pano, pano_path) # metrics 2
 
 def evaluate(args, directory):
+
+    # Set a seed to reproduce the same randomness of panos visualization
+    random.seed(42)
 
     # Get Project Sidewalk labels from API
     ps_labels_df = get_ps_labels()

@@ -136,3 +136,5 @@ res/dataset_PS
 res/dataset
 # Ignore unsupervised_test.ipynb file in notebooks
 notebooks/unsupervised_test.ipynb
+debugging.ipynb
+.DS_Store

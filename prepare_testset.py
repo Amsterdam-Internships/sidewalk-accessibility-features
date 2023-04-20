@@ -1,34 +1,47 @@
 import argparse
 import os
 import shutil
-from random import sample
+from random import sample, seed
 
-def create_testset(input_dir1, input_dir2, size):
-    common_subfolders = set(os.listdir(input_dir1)).intersection(set(os.listdir(input_dir2)))
-    
-    if len(common_subfolders) < size:
-        raise ValueError("Not enough common subfolders to satisfy the requested size.")
-    
-    selected_subfolders = sample(common_subfolders, size)
-    
+def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
+    seed(random_seed)
+
+    if reorient:
+        files1 = set(filter(lambda x: x.endswith('.jpg'), os.listdir(input_dir1)))
+        files2 = set(filter(lambda x: x.startswith('masked_') and x.endswith('.jpg'), os.listdir(input_dir2)))
+        common_files = set([f for f in files1 if f'masked_{f}' in files2])
+    else:
+        common_files = set(os.listdir(input_dir1)).intersection(set(os.listdir(input_dir2)))
+
+    if len(common_files) < size:
+        raise ValueError("Not enough common items to satisfy the requested size.")
+
+    selected_files = sample(common_files, size)
+
     output_dir1 = f"{input_dir1}_testset"
     output_dir2 = f"{input_dir2}_testset"
 
     os.makedirs(output_dir1, exist_ok=True)
     os.makedirs(output_dir2, exist_ok=True)
 
-    for subfolder in selected_subfolders:
-        shutil.copytree(os.path.join(input_dir1, subfolder), os.path.join(output_dir1, subfolder))
-        shutil.copytree(os.path.join(input_dir2, subfolder), os.path.join(output_dir2, subfolder))
+    for item in selected_files:
+        if reorient:
+            shutil.copy(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
+            shutil.copy(os.path.join(input_dir2, f'masked_{item}'), os.path.join(output_dir2, f'masked_{item}'))
+        else:
+            shutil.copytree(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
+            shutil.copytree(os.path.join(input_dir2, item), os.path.join(output_dir2, item))
 
-    print(f"Testsets created successfully with {size} common subfolders in {output_dir1} and {output_dir2}.")
+    print(f"Testsets created successfully with {size} common items in {output_dir1} and {output_dir2}.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare testset folders from input directories.")
     parser.add_argument("--input_dir1", type=str, required=True, help="Path to first input folder")
     parser.add_argument("--input_dir2", type=str, required=True, help="Path to second input folder")
-    parser.add_argument("--size", type=int, required=True, help="Number of subfolders to copy")
+    parser.add_argument("--size", type=int, required=True, help="Number of items to copy")
+    parser.add_argument("--reorient", action="store_true", help="Copy common .jpg images with different naming conventions instead of subfolders")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for random number generation to ensure consistency across runs")
 
     args = parser.parse_args()
 
-    create_testset(args.input_dir1, args.input_dir2, args.size)
+    create_testset(args.input_dir1, args.input_dir2, args.size, args.reorient, args.seed)

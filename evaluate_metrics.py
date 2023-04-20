@@ -434,9 +434,11 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
         if pano in other_labels_df["gsv_panorama_id"].values:
             print(f"Evaluating {pano}...")
             pred_masks = panos[pano]
+            n_masks = len(panos[pano])
+
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)
-            n_masks = len(panos[pano])
+            
 
             # Compute metrics
             # Metrics 1: (average) mask-to-closest-point distance
@@ -518,11 +520,6 @@ def evaluate(args, directory):
     json_path = os.path.join(json_path, 'input_coco_format.json')
     with open(json_path) as f:
         data = json.load(f)
-
-    if args.seg:
-        # Remove "masked_" from 'pano_id' in data
-        for instance in data:
-            instance['pano_id'] = instance['pano_id'].replace('masked_', '')
 
     # The structure of data is a list of dictionaries, with instance['pano_id'] as the panorama ID
     # and instance['segmentation'] as the corresponding masks.

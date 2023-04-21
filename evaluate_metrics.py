@@ -503,8 +503,6 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             metrics = [pano, cp_mean_distance, ap_mean_distance, mean_ious, \
                        cp_precision, ap_precision, cp_recall, ap_recall, \
                         cp_f1, ap_f1, cp_ap, ap_ap, ap_50, ap_75]
-            # Except for pano, round all metrics to 3 decimals
-            metrics = [round(m, 3) if isinstance(m, float) else m for m in metrics]
             with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
                 writer = csv.writer(f)
                 # If the first row contains the header, don't write it again

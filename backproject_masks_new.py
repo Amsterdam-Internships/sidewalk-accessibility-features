@@ -29,6 +29,12 @@ def find_masks(pano_path, pano):
     # Load the image
     img = cv2.imread(os.path.join(pano_path, pano) + '.png')
 
+    # Cut the image (and the mask) horizontally at the last 250 pixels
+    # To apply padding and move the first half of the back face
+    # on the left side of the image
+    pano_mask = np.concatenate((pano_mask[:, 1750:], pano_mask[:, :1750]), axis=1)
+    img = np.concatenate((img[:, 1750:], img[:, :1750]), axis=1)
+
     # Define the RGB values for yellow
     yellow_rgb = np.array([255, 246, 0])
     # Define the RGB values for blue
@@ -76,8 +82,6 @@ def find_masks(pano_path, pano):
     green_mask = cv2.morphologyEx(
         green_mask, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
 
-
-
     # Convert all the image (img) but the pixels corresponding to the yellow_mask locations to black
     left_image_mask = img.copy()
     left_image_mask[yellow_mask != 255] = 0
@@ -94,7 +98,7 @@ def find_masks(pano_path, pano):
     back_image_mask = img.copy()
     back_image_mask[green_mask != 255] = 0
 
-    return [left_image_mask, right_image_mask, front_image_mask, back_image_mask]
+    return [back_image_mask, left_image_mask, front_image_mask, right_image_mask]
 
 
 def backproject_masks(args, directory):
@@ -118,10 +122,6 @@ def backproject_masks(args, directory):
                                                     for pano in input_coco_format]]
     # Print number of panos after filtering
     print('Number of panos after filtering:', len(panos))
-
-    # Test evaluation function
-    #panos = panos[:100]
-    #print(f'Testing the following panos: {panos}')
 
     def process_pano(pano):
         print('Processing panorama', pano)
@@ -168,7 +168,7 @@ def backproject_masks(args, directory):
         top = cv2.imread(top_path)
         bottom = cv2.imread(bottom_path)
 
-        # Project from cubemap to equirectangular
+        # Project from cubemap to equirectangular (panorama size)
         equirectangular = py360convert.c2e([front, cv2.flip(right, 1), cv2.flip(back, 1), left, cv2.flip(top, 0), bottom], \
                                         w=2000, h=1000, mode='bilinear', cube_format='list')
         cv2.imwrite(os.path.join(backproject_pano_path, f'{pano}.png'), equirectangular)
@@ -176,9 +176,7 @@ def backproject_masks(args, directory):
         # Convert the masks to panorama sizes ones
         pano_masks = find_masks(backproject_pano_path, pano)
 
-        # original_image_path = os.path.join(os.path.dirname(args.input_dir), 'reoriented', pano)
-
-        # Prepare the data for the triangulation: make a .json file as a list of dictionaries,
+        # Make a .json file as a list of dictionaries,
         # where each dictionary contains the pano_id, the bounding box and the mask
         for pano_mask in pano_masks:
 

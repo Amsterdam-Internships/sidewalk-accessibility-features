@@ -26,7 +26,7 @@ def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
     os.makedirs(output_dir1, exist_ok=True)
     os.makedirs(output_dir2, exist_ok=True)
 
-    for item in selected_files:
+    for item in tqdm(selected_files):
         if reorient:
             shutil.copy(os.path.join(input_dir1, item), os.path.join(output_dir1, item))
             shutil.copy(os.path.join(input_dir2, item), os.path.join(output_dir2, item))

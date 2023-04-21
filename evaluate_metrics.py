@@ -39,7 +39,7 @@ def get_ps_labels():
 
     ps_labels_df = gpd.GeoDataFrame.from_features(project_sidewalk_labels['features'])
     # Print length before filtering
-    print('Length raw labels: ', len(ps_labels_df))
+    print('Length of labels from attributesWithLabels API: ', len(ps_labels_df))
 
     return ps_labels_df
 
@@ -47,7 +47,7 @@ def get_xy_coords_ps_labels():
     # Send a get call to this API: https://sidewalk-amsterdam-test.cs.washington.edu/adminapi/labels/cvMetadata
     other_labels = requests.get('https://sidewalk-amsterdam.cs.washington.edu/adminapi/labels/cvMetadata').json()
     other_labels_df = pd.DataFrame(other_labels)
-    print('Length raw labels (2): ', len(other_labels_df))
+    print('Length raw labels from cvMetadata API (low quality) : ', len(other_labels_df))
 
     return other_labels_df
 
@@ -70,7 +70,7 @@ def visualize_labels(args, gt_points, pano_id, path):
     ax.imshow(mask, cmap='jet', alpha=0.4)
 
     for gt_point in gt_points:
-        ax.scatter(gt_point[1], gt_point[0], color='red', s=8)
+        ax.scatter(gt_point[1], gt_point[0], color='red', s=7)
 
     # Set small tick labels
     ax.tick_params(axis='both', which='both', labelsize=6)
@@ -247,11 +247,27 @@ def compute_label_coordinates(args, dataframe, pano_id):
 
     return labels_coords
 
+import numpy as np
+from scipy.spatial.distance import cdist
+
 def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
     distances = []
     points = []
     gt_indices = []
     is_empty = False
+
+    # Function to determine the horizontal part of the image
+    def get_image_part(coord):
+        if 0 <= coord < 500:
+            return 0
+        elif 500 <= coord < 1000:
+            return 1
+        elif 1000 <= coord < 1500:
+            return 2
+        elif 1500 <= coord < 2000:
+            return 3
+        else:
+            raise ValueError("Invalid coordinate")
 
     for idx, pred_mask in enumerate(pred_masks):
         if pred_mask.ndim == 2:  # Check if the mask is 2D
@@ -282,7 +298,10 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
-                if local_min_distance < min_distance:
+                gt_part = get_image_part(gt_point[0])
+                local_closest_x_part = get_image_part(local_closest_x)
+
+                if local_min_distance < min_distance and gt_part == local_closest_x_part:
                     min_distance = local_min_distance
                     closest_y, closest_x = local_closest_y, local_closest_x
                     gt_point_index = gt_idx
@@ -304,7 +323,10 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
 
                 local_min_distance = dist[0, 0]
 
-                if local_min_distance < min_distance:
+                gt_part = get_image_part(gt_point[0])
+                anchor_point_part = get_image_part(anchor_point[1])
+
+                if local_min_distance < min_distance and gt_part == anchor_point_part:
                     min_distance = local_min_distance
                     gt_point_index = gt_idx
 
@@ -542,15 +564,17 @@ def evaluate(args, directory):
 
     # Get Project Sidewalk labels from API
     ps_labels_df = get_ps_labels()
-    # Get the labels from another API call
+    # Get the labels from another API endpoint
     other_labels_df = get_xy_coords_ps_labels()
 
-    # Filter labels dataframe to only contain obstacles
-    ps_labels_df = ps_labels_df[ps_labels_df['label_type'] == 'Obstacle']
+    # Filter other_labels_df to only contain obstacles ('label_type_id' == 3)
+    other_labels_df = other_labels_df[other_labels_df['label_type_id'] == 3]
+
+    print(f'Number of obstacles labels from cvMetadata API (low quality): {len(other_labels_df)}')
 
     # Intersect other_labels_df with ps_labels_df
-    other_labels_df = other_labels_df[other_labels_df['gsv_panorama_id'].isin(ps_labels_df['gsv_panorama_id'])]
-    print('Number of labels in other_labels_df after filtering for obstacles: ', len(other_labels_df))
+    other_labels_df = other_labels_df[other_labels_df['label_id'].isin(ps_labels_df['label_id'])]
+    print(f'Number of obstacles labels in other_labels_df after filtering for high quality data: {len(other_labels_df)}')
 
     # Load masks from .json file
     json_path = os.path.join(os.path.dirname(args.input_dir), args.backprojected_dir)

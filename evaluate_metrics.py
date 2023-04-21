@@ -503,6 +503,8 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             metrics = [pano, cp_mean_distance, ap_mean_distance, mean_ious, \
                        cp_precision, ap_precision, cp_recall, ap_recall, \
                         cp_f1, ap_f1, cp_ap, ap_ap, ap_50, ap_75]
+            # Except for pano, round all metrics to 3 decimals
+            metrics = [round(m, 3) if isinstance(m, float) else m for m in metrics]
             with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
                 writer = csv.writer(f)
                 # If the first row contains the header, don't write it again
@@ -633,7 +635,7 @@ def main(args):
         args.input_dir = os.path.join(args.input_dir, reoriented_foldername)
 
     # Create the output directory if it doesn't exist
-    directory_name = 'evaluation_seg' if args.seg else 'evaluation'
+    directory_name = f'{args.output_dir}_seg' if args.seg else f'{args.output_dir}'
     directory = os.path.join(os.path.dirname(args.input_dir), directory_name)
 
     if args.test:
@@ -654,6 +656,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='res/dataset')
+    parser.add_argument('--output_dir', type=str, default='evaluation')
     parser.add_argument('--backprojected_dir', type=str, default='backprojected')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')

@@ -15,6 +15,46 @@ from PIL import Image
 import concurrent.futures
 import psutil
 import pandas as pd
+import requests
+import geopandas as gpd
+import shutil
+
+'''TODO: Move the function in utils.py'''
+def get_ps_labels(args):
+
+    base_url = "https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?lat1={}&lng1={}&lat2={}&lng2={}" 
+    
+    whole = (52.303, 4.8, 52.425, 5.05)
+    centrum_west = (52.364925, 4.87444, 52.388692, 4.90641)
+    test = (52.0, 4.0, 53.0, 5.0)
+
+    coords = test
+
+    url = base_url.format(*coords)
+
+    label_dump = os.path.join(args.label_dump, 'attributesWithLabels')
+
+    try:
+        project_sidewalk_labels = json.load(open(label_dump, 'r'))
+    except Exception as e:
+        print("Couldn't load local dump")
+        project_sidewalk_labels = requests.get(url.format(*coords)).json()
+        json.dump(project_sidewalk_labels, open(label_dump, 'w'))
+
+    ps_labels_df = gpd.GeoDataFrame.from_features(project_sidewalk_labels['features'])
+    # Print length before filtering
+    print('Length of labels from attributesWithLabels API: ', len(ps_labels_df))
+
+    return ps_labels_df
+
+'''TODO: Move the function in utils.py'''
+def get_xy_coords_ps_labels():
+    # Send a get call to this API: https://sidewalk-amsterdam-test.cs.washington.edu/adminapi/labels/cvMetadata
+    other_labels = requests.get('https://sidewalk-amsterdam.cs.washington.edu/adminapi/labels/cvMetadata').json()
+    other_labels_df = pd.DataFrame(other_labels)
+    print('Length raw labels from cvMetadata API (low quality) : ', len(other_labels_df))
+
+    return other_labels_df
 
 def move_panos_to_root(input_dir):
     '''Move the panos from the subfolders to the root of the folder.'''
@@ -232,6 +272,47 @@ def remove_panos_without_metadata(args):
     new_len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
     print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
 
+    # Open .csv file called 'not_reoriented.csv' as a dataframe
+    not_reoriented_csv = f'not_reoriented.csv'
+    dataframe = pd.read_csv(not_reoriented_csv)
+    # Remove rows which have 'downloaded' == 1
+    dataframe = dataframe[dataframe.downloaded != 1]
+    # Save the dataframe to a .csv file
+    dataframe.to_csv(not_reoriented_csv, index=False)
+
+def save_hq_panos(args):
+    # Get Project Sidewalk labels from API
+    ps_labels_df = get_ps_labels(args)
+    # Get the labels from another API endpoint
+    other_labels_df = get_xy_coords_ps_labels()
+
+    # Filter other_labels_df to only contain obstacles ('label_type_id' == 3)
+    other_labels_df = other_labels_df[other_labels_df['label_type_id'] == 3]
+
+    print(f'Number of obstacles labels from cvMetadata API (low quality): {len(other_labels_df)}')
+
+    # Intersect other_labels_df with ps_labels_df
+    other_labels_df = other_labels_df[other_labels_df['label_id'].isin(ps_labels_df['label_id'])]
+    print(f'Number of obstacles labels in other_labels_df after filtering for high quality data: {len(other_labels_df)}')
+
+    # Select the unique pano ids from gsv_panorama_id column in other_labels_df
+    other_labels_df = other_labels_df['gsv_panorama_id'].unique()
+
+    print(f'Number of panos containing only obstacles as labels: {len(other_labels_df)}')
+
+    image_folder_path = os.path.join(args.input_dir, 'reoriented')
+
+    # Copy the images that are in other_labels_df to a new folder called reoriented_hq
+    # Make sure to filter non .jpg images
+    for file in os.listdir(image_folder_path):
+        file_name, file_extension = os.path.splitext(file)
+        if file_extension.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+            if file_name in other_labels_df:
+                shutil.copy(os.path.join(image_folder_path, file), os.path.join(args.input_dir, 'reoriented_hq'))
+
+    # Check number of files in reoriented_hq folder
+    print(f'Number of images in reoriented_hq folder: {len(os.listdir(os.path.join(args.input_dir, "reoriented_hq")))}')
+
 
 def main(args):
     # DownloadRunner.py downloads each pano inside a folder. We need to move
@@ -253,11 +334,18 @@ def main(args):
     # Remove the panos that have not been reoriented (because they don't have heading information)
     remove_panos_without_metadata(args)
 
+    if args.filter:
+        # Filter the panos that have high quality obstacles labels
+        print('Filtering the panos that have high quality obstacles labels...')
+        save_hq_panos(args)
+        print('Done!')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
+    parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 

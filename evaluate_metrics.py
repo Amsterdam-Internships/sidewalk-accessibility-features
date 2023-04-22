@@ -301,7 +301,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
-                gt_part = get_image_part(gt_point[0])
+                gt_part = get_image_part(gt_point[1])
                 local_closest_x_part = get_image_part(local_closest_x)
 
                 if local_min_distance < min_distance and gt_part == local_closest_x_part:
@@ -326,7 +326,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
 
                 local_min_distance = dist[0, 0]
 
-                gt_part = get_image_part(gt_point[0])
+                gt_part = get_image_part(gt_point[1])
                 anchor_point_part = get_image_part(anchor_point[1])
 
                 if local_min_distance < min_distance and gt_part == anchor_point_part:
@@ -364,11 +364,21 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
         max_iou = -1  # Initialize with -1 to distinguish cases when no IoU is calculated
         best_gt_point_index = -1
 
+        # Get a random point in the mask and find its image part
+        mask_points = np.where(pred_mask)
+        random_index = random.randint(0, len(mask_points[0]) - 1)
+        random_mask_point = (mask_points[0][random_index], mask_points[1][random_index])
+        mask_part = get_image_part(random_mask_point[1])
+        print(f'Random point coordinates for mask {idx}: {random_mask_point}')
+        print(f'Image part for mask {idx}: {mask_part}')
+
         for point_idx, gt_point in enumerate(gt_points):
-            gt_part = get_image_part(gt_point[0])
+            gt_part = get_image_part(gt_point[1])
+            print(f'Ground truth part: {gt_part}')
 
             # Check if the mask and the label are both in the same part
-            if get_image_part(np.where(pred_mask)[1]).any(lambda x: x == gt_part):
+            if mask_part == gt_part:
+                print('Same part')
 
                 # Compute the distance from the ground truth point to all other points
                 distances = cdist([gt_point], coords).reshape(pred_mask.shape)

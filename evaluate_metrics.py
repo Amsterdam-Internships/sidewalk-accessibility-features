@@ -112,7 +112,10 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
     fig.subplots_adjust(hspace=0, top=0.9)
 
     for idx, (pred_mask, (row_idx, col_idx)) in enumerate(zip(pred_masks, np.ndindex((num_rows, 2)))):
-        ax = axes[row_idx, col_idx]
+        if num_rows > 1:
+            ax = axes[row_idx, col_idx]
+        else:
+            ax = axes[col_idx]
         ax.imshow(pred_mask)  # Display the predicted mask
 
         # Retrieve the correct ground truth point, distance, and closest point
@@ -127,17 +130,24 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
         ax.scatter(closest_x, closest_y, c='blue', marker='o', s=20, label='Closest Point')  # Mark the closest point
 
         # Put legend size to small
-        ax.legend(loc='upper right', prop={'size': 6})
-        ax.set_title(f"Closest mask-to-point distance for mask {idx + 1}")
+        ax.legend(loc='upper right', prop={'size': 7})
+        ax.set_title(f"Closest mask-to-point distance for mask {idx + 1}", fontsize=7)
 
         # Display y-axis only on the left-most plot for each row
         if col_idx != 0:
             ax.set_yticklabels([])
             ax.set_yticks([])
 
+    # Make ticks smaller
+    for ax in fig.get_axes():
+        ax.tick_params(axis='both', which='both', labelsize=7)
+
     # Remove any unused plot axes
     for i in range(num_rows * 2 - num_masks):
-        fig.delaxes(axes[num_rows - 1, 1 - i])
+        if num_rows > 1:
+            fig.delaxes(axes[num_rows - 1, 1 - i])
+        else:
+            fig.delaxes(axes[1 - i])
 
     plt.tight_layout()
     #plt.show()
@@ -178,36 +188,42 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
         row_idx = idx // 2
         col_idx = idx % 2
 
+        # Access the axes based on its dimensions
+        if num_rows > 1:
+            ax = axes[row_idx, col_idx]
+        else:
+            ax = axes[col_idx]
+
         # Display the dilated ground truth mask
-        axes[row_idx, col_idx].imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+        ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
 
         # Display the predicted mask
-        axes[row_idx, col_idx].imshow(pred_mask, alpha=0.5, cmap='jet', label='Predicted Mask')
+        ax.imshow(pred_mask, alpha=0.5, cmap='jet', label='Predicted Mask')
 
         # Mark the best ground truth point
-        axes[row_idx, col_idx].scatter(best_gt_point[1], best_gt_point[0], c='red', marker='x', s=50, label='Ground Truth')
+        ax.scatter(best_gt_point[1], best_gt_point[0], c='red', marker='x', s=50, label='Ground Truth')
 
         # Set the plot title
-        axes[row_idx, col_idx].set_title(f"Mask {idx + 1}", fontsize='medium')
-        axes[row_idx, col_idx].legend()
+        ax.set_title(f"Mask {idx + 1}", fontsize='medium')
+        ax.legend()
 
         # Display y-axis only on the left-most plot for each row
         if col_idx != 0:
-            axes[row_idx, col_idx].set_yticklabels([])
-            axes[row_idx, col_idx].set_yticks([])
-
-    # Set the figure title
-    fig.suptitle("Best dilated ground truth point and masks")
+            ax.set_yticklabels([])
+            ax.set_yticks([])
 
     # Remove any unused plot axes
     for i in range(num_rows * 2 - num_masks):
-        fig.delaxes(axes[num_rows - 1, 1 - i])
+        if num_rows > 1:
+            fig.delaxes(axes[num_rows - 1, 1 - i])
+        else:
+            fig.delaxes(axes[1 - i])
 
     # Set spacing between rows
     fig.subplots_adjust(hspace=0.1)
 
+    # Use tight_layout with rect parameter to align the title properly
     plt.tight_layout()
-    #plt.show()
 
     # Save the image
     fig.savefig(os.path.join(path, f'{pano_id}_mask_iou.png'), dpi=300, bbox_inches='tight')
@@ -383,16 +399,13 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
         random_index = random.randint(0, len(mask_points[0]) - 1)
         random_mask_point = (mask_points[0][random_index], mask_points[1][random_index])
         mask_part = get_image_part(random_mask_point[1])
-        print(f'Random point coordinates for mask {idx}: {random_mask_point}')
-        print(f'Image part for mask {idx}: {mask_part}')
 
         for point_idx, gt_point in enumerate(gt_points):
             gt_part = get_image_part(gt_point[1])
-            print(f'Ground truth part: {gt_part}')
 
             # Check if the mask and the label are both in the same part
             if mask_part == gt_part:
-                print('Same part')
+                print(f'Mask and Ground Truth label are in the same part: {gt_part} == {mask_part}')
 
                 # Compute the distance from the ground truth point to all other points
                 distances = cdist([gt_point], coords).reshape(pred_mask.shape)

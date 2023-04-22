@@ -16,7 +16,7 @@ import random
 from collections import defaultdict
 from pprint import pprint
 
-def get_ps_labels():
+def get_ps_labels(args):
 
     base_url = "https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?lat1={}&lng1={}&lat2={}&lng2={}" 
     
@@ -28,7 +28,7 @@ def get_ps_labels():
 
     url = base_url.format(*coords)
 
-    local_dump = url.replace('/', '|')
+    local_dump = args.local_dump
 
     try:
         project_sidewalk_labels = json.load(open(local_dump, 'r'))
@@ -600,7 +600,7 @@ def evaluate(args, directory):
     random.seed(42)
 
     # Get Project Sidewalk labels from API
-    ps_labels_df = get_ps_labels()
+    ps_labels_df = get_ps_labels(args)
     # Get the labels from another API endpoint
     other_labels_df = get_xy_coords_ps_labels()
 
@@ -718,6 +718,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default='evaluation')
     parser.add_argument('--backprojected_dir', type=str, default='backprojected')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
+    parser.add_argument('--label_dump', type=str, default='res/labels/labels.csv')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--visualize', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')

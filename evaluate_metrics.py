@@ -318,9 +318,10 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
         mask_coords = np.where(mask_channel > 0)  # Get the indices of non-zero elements (i.e., the mask)
         mask_coords = np.vstack(mask_coords).T  # Stack the mask indices into a 2D array
 
+        mask_points = []
+
         if closest_point:
             mask_distances = []
-            mask_points = []
             mask_gt_indices = []
 
             for gt_idx, gt_point in enumerate(gt_points):

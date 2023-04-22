@@ -272,14 +272,6 @@ def remove_panos_without_metadata(args):
     new_len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
     print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
 
-    # Open .csv file called 'not_reoriented.csv' as a dataframe
-    not_reoriented_csv = f'not_reoriented.csv'
-    dataframe = pd.read_csv(not_reoriented_csv)
-    # Remove rows which have 'downloaded' == 1
-    dataframe = dataframe[dataframe.downloaded != 1]
-    # Save the dataframe to a .csv file
-    dataframe.to_csv(not_reoriented_csv, index=False)
-
 def save_hq_panos(args):
     # Get Project Sidewalk labels from API
     ps_labels_df = get_ps_labels(args)

@@ -27,6 +27,19 @@ def shift_points(points):
         shifted_points.append((y, x))
     return shifted_points
 
+def get_image_part(coord):
+    # Function to determine the horizontal part of the image
+    if 0 <= coord < 500:
+        return 0
+    elif 500 <= coord < 1000:
+        return 1
+    elif 1000 <= coord < 1500:
+        return 2
+    elif 1500 <= coord < 2000:
+        return 3
+    else:
+        raise ValueError("Invalid coordinate")
+
 def get_ps_labels(args):
 
     base_url = "https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?lat1={}&lng1={}&lat2={}&lng2={}" 
@@ -106,7 +119,10 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(10, 3 * num_rows))
 
-    assert len(pred_masks) == len(closest_points) == len(gt_indices)
+    flattened_closest_points = [p for sublist in closest_points for p in sublist]
+    flattened_gt_indices = [i for sublist in gt_indices for i in sublist]
+
+    assert len(flattened_closest_points) == len(flattened_gt_indices)
 
     # Remove space between rows and adjust the space between title and first row
     fig.subplots_adjust(hspace=0, top=0.9)
@@ -119,8 +135,8 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
         ax.imshow(pred_mask)  # Display the predicted mask
 
         # Retrieve the correct ground truth point, distance, and closest point
-        gt_point = gt_points[gt_indices[idx]]
-        closest_point = closest_points[idx]
+        gt_point = gt_points[flattened_gt_indices[idx]]
+        closest_point = flattened_closest_points[idx]
 
         y, x = gt_point
         closest_y, closest_x = closest_point
@@ -161,12 +177,12 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
     plt.close(fig)
 
 
-def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, pano_id, path):
+def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices_list, pano_id, path):
     num_masks = len(pred_masks)
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(13, 4 * num_rows))
 
-    assert len(pred_masks) == len(best_gt_point_indices)
+    assert len(pred_masks) == len(best_gt_point_indices_list)
 
     # Remove space between rows and adjust the space between title and first row
     fig.subplots_adjust(hspace=0, top=0.9)
@@ -175,15 +191,7 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
     y_coords, x_coords = np.indices(pred_masks[0].shape)
     coords = np.column_stack((y_coords.ravel(), x_coords.ravel()))
 
-    for idx, (pred_mask, best_gt_point_idx) in enumerate(zip(pred_masks, best_gt_point_indices)):
-        best_gt_point = gt_points[best_gt_point_idx]
-
-        # Compute the distance from the best ground truth point to all other points
-        distances = cdist([best_gt_point], coords).reshape(pred_mask.shape)
-
-        # Create a dilated mask by thresholding the distance matrix at the specified radius
-        gt_mask_dilated = (distances <= args.radius).astype(int)
-
+    for idx, (pred_mask, best_gt_point_indices) in enumerate(zip(pred_masks, best_gt_point_indices_list)):
         # Determine the position of the current mask in the plot grid
         row_idx = idx // 2
         col_idx = idx % 2
@@ -193,15 +201,28 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
             ax = axes[row_idx, col_idx]
         else:
             ax = axes[col_idx]
+        
+        label_added = False
+        for best_gt_point_idx in best_gt_point_indices:
+            best_gt_point = gt_points[best_gt_point_idx]
 
-        # Display the dilated ground truth mask
-        ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+            # Compute the distance from the best ground truth point to all other points
+            distances = cdist([best_gt_point], coords).reshape(pred_mask.shape)
+
+            # Create a dilated mask by thresholding the distance matrix at the specified radius
+            gt_mask_dilated = (distances <= args.radius).astype(int)
+
+            # Display the dilated ground truth mask
+            ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+
+            if not label_added:
+                ax.imshow(best_gt_point, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+                label_added = True
+            else:
+                ax.imshow(best_gt_point, alpha=0.5, cmap='gray')
 
         # Display the predicted mask
         ax.imshow(pred_mask, alpha=0.5, cmap='jet', label='Predicted Mask')
-
-        # Mark the best ground truth point
-        ax.scatter(best_gt_point[1], best_gt_point[0], c='red', marker='x', s=50, label='Ground Truth')
 
         # Set the plot title
         ax.set_title(f"Mask {idx + 1}", fontsize='medium')
@@ -280,27 +301,10 @@ def compute_label_coordinates(args, dataframe, pano_id):
 
     return labels_coords
 
-import numpy as np
-from scipy.spatial.distance import cdist
-
 def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
     distances = []
     points = []
     gt_indices = []
-    is_empty = False
-
-    # Function to determine the horizontal part of the image
-    def get_image_part(coord):
-        if 0 <= coord < 500:
-            return 0
-        elif 500 <= coord < 1000:
-            return 1
-        elif 1000 <= coord < 1500:
-            return 2
-        elif 1500 <= coord < 2000:
-            return 3
-        else:
-            raise ValueError("Invalid coordinate")
 
     for idx, pred_mask in enumerate(pred_masks):
         if pred_mask.ndim == 2:  # Check if the mask is 2D
@@ -314,60 +318,64 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
         mask_coords = np.vstack(mask_coords).T  # Stack the mask indices into a 2D array
 
         if closest_point:
-            min_distance = float('inf')
-            closest_y, closest_x = -1, -1
-            gt_point_index = -1
+            mask_distances = []
+            mask_points = []
+            mask_gt_indices = []
 
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, mask_coords)
-
-                try:
-                    local_min_distance_idx = np.argmin(dist)
-                except:
-                    print('Mask is empty.')
-                    is_empty = True
-                    break
+                local_min_distance_idx = np.argmin(dist)
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
                 gt_part = get_image_part(gt_point[1])
                 local_closest_x_part = get_image_part(local_closest_x)
 
-                if local_min_distance < min_distance and gt_part == local_closest_x_part:
-                    min_distance = local_min_distance
-                    closest_y, closest_x = local_closest_y, local_closest_x
-                    gt_point_index = gt_idx
+                if gt_part == local_closest_x_part:
+                    mask_distances.append(local_min_distance)
+                    mask_points.append((local_closest_y, local_closest_x))
+                    mask_gt_indices.append(gt_idx)
 
-            distances.append(min_distance)
-            points.append((closest_y, closest_x))
-            gt_indices.append(gt_point_index)
+            # If there are no points in the same part, append a large distance and a dummy point
+            if len(mask_distances) > 0:
+                distances.append(mask_distances)
+                points.append(mask_points)
+                gt_indices.append(mask_gt_indices)
+            else:
+                distances.append([float('inf')])
+                points.append([(-1, -1)])
+                gt_indices.append([-1])
 
         else:
             # Compute the anchor point as the centroid of the mask coordinates
             anchor_point = np.mean(mask_coords, axis=0)
-
-            min_distance = float('inf')
-            gt_point_index = -1
+            mask_distances = []
+            mask_gt_indices = []
 
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, anchor_point.reshape(1, -1))  # Calculate distance to anchor_point
-
                 local_min_distance = dist[0, 0]
 
                 gt_part = get_image_part(gt_point[1])
                 anchor_point_part = get_image_part(anchor_point[1])
 
-                if local_min_distance < min_distance and gt_part == anchor_point_part:
-                    min_distance = local_min_distance
-                    gt_point_index = gt_idx
+                if gt_part == anchor_point_part:
+                    mask_distances.append(local_min_distance)
+                    mask_gt_indices.append(gt_idx)
 
-            distances.append(min_distance)
-            points.append(anchor_point)
-            gt_indices.append(gt_point_index)
+            # If there are no points in the same part, append a large distance and a dummy point
+            if len(mask_distances) > 0:
+                distances.append(mask_distances)
+                points.append(mask_points)
+                gt_indices.append(mask_gt_indices)
+            else:
+                distances.append([float('inf')])
+                points.append([(-1, -1)])
+                gt_indices.append([-1])
 
-    return distances, points, gt_indices, is_empty
+    return distances, points, gt_indices
 
 def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     best_ious = []
@@ -377,22 +385,9 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     y_coords, x_coords = np.indices(pred_masks[0].shape)
     coords = np.column_stack((y_coords.ravel(), x_coords.ravel()))
 
-    # Function to determine the horizontal part of the image
-    def get_image_part(coord):
-        if 0 <= coord < 500:
-            return 0
-        elif 500 <= coord < 1000:
-            return 1
-        elif 1000 <= coord < 1500:
-            return 2
-        elif 1500 <= coord < 2000:
-            return 3
-        else:
-            raise ValueError("Invalid coordinate")
-
     for idx, pred_mask in enumerate(pred_masks):
-        max_iou = -1  # Initialize with -1 to distinguish cases when no IoU is calculated
-        best_gt_point_index = -1
+        mask_ious = []
+        mask_gt_point_indices = []
 
         # Get a random point in the mask and find its image part
         mask_points = np.where(pred_mask)
@@ -403,13 +398,11 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
         for point_idx, gt_point in enumerate(gt_points):
             gt_part = get_image_part(gt_point[1])
 
-            # Check if the mask and the label are both in the same part
+            # Check if the mask and the label are both in the same part of the image
             if mask_part == gt_part:
                 print(f'Mask and Ground Truth label are in the same part: {gt_part} == {mask_part}')
-
                 # Compute the distance from the ground truth point to all other points
                 distances = cdist([gt_point], coords).reshape(pred_mask.shape)
-
                 # Create a dilated mask by thresholding the distance matrix at the specified radius
                 gt_mask_dilated = (distances <= radius).astype(int)
 
@@ -418,13 +411,16 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
                 union = np.sum(np.logical_or(gt_mask_dilated, pred_mask))
                 iou = intersection / union
 
-                # Update the best IoU and ground truth point index
-                if iou > max_iou:
-                    max_iou = iou
-                    best_gt_point_index = point_idx
+                mask_ious.append(iou)
+                mask_gt_point_indices.append(point_idx)
 
-        best_ious.append(max_iou)
-        best_gt_point_indices.append(best_gt_point_index)
+        # If there are no points in the same part, append a large distance and a dummy point
+        if len(mask_ious) > 0:
+            best_ious.append(mask_ious)
+            best_gt_point_indices.append(mask_gt_point_indices)
+        else:
+            best_ious.append([-1])
+            best_gt_point_indices.append([-1])
 
     return best_ious, best_gt_point_indices
 
@@ -438,15 +434,17 @@ def precision_recall_f1(distances, gt_indices, threshold):
     matched_gt_indices = set()
 
     # Count true positives and false positives
-    for distance, gt_idx in zip(distances, gt_indices):
-        if distance <= threshold:
-            true_positives += 1
-            matched_gt_indices.add(gt_idx)
-        else:
-            false_positives += 1
+    for dist_list, idx_list in zip(distances, gt_indices):
+        for distance, gt_idx in zip(dist_list, idx_list):
+            if distance <= threshold:
+                true_positives += 1
+                matched_gt_indices.add(gt_idx)
+            else:
+                false_positives += 1
 
     # Count false negatives
-    false_negatives = len(gt_indices) - len(matched_gt_indices)
+    all_gt_indices = {i for idx_list in gt_indices for i in idx_list}
+    false_negatives = len(all_gt_indices) - len(matched_gt_indices)
 
     '''True Negative (TN) — Background region correctly not detected by the model. 
     This metric is not used in object detection because such regions are not explicitly
@@ -464,31 +462,32 @@ def precision_recall_f1(distances, gt_indices, threshold):
     else:
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)
-    if precision + recall == 0:
-        f1_score = 0
-    else:
-        f1_score = 2 * (precision * recall) / (precision + recall)
+        if precision + recall == 0:
+            f1_score = 0
+        else:
+            f1_score = 2 * (precision * recall) / (precision + recall)
 
-    
-    #print(f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1-score: {f1_score:.3f}")
+    # print(f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1-score: {f1_score:.3f}")
     return precision, recall, f1_score
 
 def average_precision(distances, gt_indices, threshold):
-    true_positives = 0
-    false_positives = 0
-    n_gt_points = len(gt_indices)
+    true_positives = []
+    false_positives = []
+
+    all_gt_indices = {i for idx_list in gt_indices for i in idx_list}
+    n_gt_points = len(all_gt_indices)
 
     assert len(distances) == len(gt_indices)
 
-    matched_gt_indices = set()
-
     # Count true positives and false positives
-    for distance, gt_idx in zip(distances, gt_indices):
-        if distance <= threshold:
-            true_positives += 1
-            matched_gt_indices.add(gt_idx)
-        else:
-            false_positives += 1
+    for dist_list, idx_list in zip(distances, gt_indices):
+        for distance, gt_idx in zip(dist_list, idx_list):
+            if distance <= threshold:
+                true_positives.append(1)
+                false_positives.append(0)
+            else:
+                true_positives.append(0)
+                false_positives.append(1)
 
     tp_cumsum = np.cumsum(true_positives)
     fp_cumsum = np.cumsum(false_positives)
@@ -508,13 +507,15 @@ def average_precision(distances, gt_indices, threshold):
     return ap
 
 def average_precision_iou(best_ious, best_gt_point_indices, threshold):
-    num_gt_points = len(best_gt_point_indices)
-    num_pred_masks = len(best_ious)
+    all_best_gt_indices = {i for idx_list in best_gt_point_indices for i in idx_list}
+    num_gt_points = len(all_best_gt_indices)
 
-    assert num_gt_points == num_pred_masks
+    flattened_best_ious = [iou for iou_list in best_ious for iou in iou_list]
 
-    sorted_indices = sorted(range(num_pred_masks), key=lambda i: best_ious[i], reverse=True)
-    sorted_best_ious = [best_ious[i] for i in sorted_indices]
+    num_pred_masks = len(flattened_best_ious)
+
+    sorted_indices = sorted(range(num_pred_masks), key=lambda i: flattened_best_ious[i], reverse=True)
+    sorted_best_ious = [flattened_best_ious[i] for i in sorted_indices]
 
     tp = [1 if iou >= threshold else 0 for iou in sorted_best_ious]
     fp = [1 - t for t in tp]
@@ -558,37 +559,35 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
 
             # Since we padded the masks, we need to apply the same padding to the ground truth points
             gt_points = shift_points(gt_points)
-            
 
             # Compute metrics
             # Metrics 1: (average) mask-to-closest-point distance
-            cp_distances, closest_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
+            cp_distances, cp_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
             if is_empty:
                 continue
             # Calculate mean distance between all masks and points, closest points only
             # Exclude float('inf') values
-            cp_distances_array = np.array(cp_distances)
-            non_inf_indices = np.where(np.logical_not(np.isinf(cp_distances_array)))
-            cp_distances_filtered = cp_distances_array[non_inf_indices]
+            cp_distances_filtered = [d for dist_list in cp_distances for d in dist_list if not np.isinf(d)]
             cp_mean_distance = np.mean(cp_distances_filtered)
+
             # Metrics 1.1: (average) mask-to-closest-anchor-point distance
-            ap_distances, closest_anchors, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
-            ap_distances_array = np.array(ap_distances)
-            non_inf_ap_indices = np.where(np.logical_not(np.isinf(ap_distances_array)))
-            ap_distances_filtered = ap_distances_array[non_inf_ap_indices]
+            ap_distances, ap_points, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
+            ap_distances_filtered = [d for dist_list in ap_distances for d in dist_list if not np.isinf(d)]
             ap_mean_distance = np.mean(ap_distances_filtered)
+
             # Metrics 2: point-to-mask best IoU
-            # Exclude -1 values )
+            # Exclude -1 values
             best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
-            best_ious_array = np.array(best_ious)
-            non_minus_one_indices = np.where(best_ious_array != -1)
-            best_ious_filtered = best_ious_array[non_minus_one_indices]
+            best_ious_filtered = [iou for iou_list in best_ious for iou in iou_list if iou != -1]
             mean_ious = np.mean(best_ious_filtered)
 
             # Filter valid quadruples based on gt_indices
-            valid_cp_quadruples = [(m, d, p, i) for m, d, p, i in zip(pred_masks, cp_distances, closest_points, cp_gt_indices) if i != -1]
-            valid_ap_quadruples = [(m, d, p, i) for m, d, p, i in zip(pred_masks, ap_distances, closest_anchors, ap_gt_indices) if i != -1]
-            valid_iou_triples = [(m, iou, i) for m, iou, i in zip(pred_masks, best_ious, best_gt_point_indices) if i != -1]
+            valid_cp_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, cp_distances, cp_points, cp_gt_indices)
+                                for d, p, i in zip(dist_list, point_list, idx_list) if i != -1]
+            valid_ap_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, ap_distances, ap_points, ap_gt_indices)
+                                for d, p, i in zip(dist_list, point_list, idx_list) if i != -1]
+            valid_iou_triples = [(m, iou, i) for m, iou_list, idx_list in zip(pred_masks, best_ious, best_gt_point_indices)
+                                for iou, i in zip(iou_list, idx_list) if i != -1]
 
             # Extract valid masks, distances, points, and gt_indices
             valid_cp_masks, valid_cp_distances, valid_closest_points, valid_cp_gt_indices = zip(*valid_cp_quadruples)

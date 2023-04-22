@@ -87,10 +87,12 @@ def visualize_labels(args, gt_points, pano_id, path):
     plt.close(fig)
 
 
-def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_indices, pano_id, path, cp=True):
+def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano_id, path, cp=True):
     num_masks = len(pred_masks)
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(10, 3 * num_rows))
+
+    assert len(pred_masks) == len(closest_points) == len(gt_indices)
 
     # Remove space between rows and adjust the space between title and first row
     fig.subplots_adjust(hspace=0, top=0.9)
@@ -101,7 +103,6 @@ def visualize_debug_mask(gt_points, pred_masks, distances, closest_points, gt_in
 
         # Retrieve the correct ground truth point, distance, and closest point
         gt_point = gt_points[gt_indices[idx]]
-        distance = distances[idx]
         closest_point = closest_points[idx]
 
         y, x = gt_point
@@ -140,6 +141,8 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, p
     num_masks = len(pred_masks)
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(13, 4 * num_rows))
+
+    assert len(pred_masks) == len(best_gt_point_indices)
 
     # Remove space between rows and adjust the space between title and first row
     fig.subplots_adjust(hspace=0, top=0.9)
@@ -533,15 +536,15 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
             mean_ious = np.mean(best_ious[best_ious != -1])
 
-            # Filter out invalid pairs (distance = float('inf'), (iou, gt_idx) = (-1, -1)
-            valid_cp_pairs = [(distance, gt_idx) for distance, gt_idx in zip(cp_distances, cp_gt_indices) if gt_idx != -1]
-            valid_ap_pairs = [(distance, gt_idx) for distance, gt_idx in zip(ap_distances, ap_gt_indices) if gt_idx != -1]
-            valid_iou_pairs = [(iou, gt_idx) for iou, gt_idx in zip(best_ious, best_gt_point_indices) if gt_idx != -1]
+            # Filter valid quadruples based on gt_indices
+            valid_cp_quadruples = [(m, d, p, i) for m, d, p, i in zip(pred_masks, cp_distances, closest_points, cp_gt_indices) if i != -1]
+            valid_ap_quadruples = [(m, d, p, i) for m, d, p, i in zip(pred_masks, ap_distances, closest_anchors, ap_gt_indices) if i != -1]
+            valid_iou_triples = [(m, iou, i) for m, iou, i in zip(pred_masks, best_ious, best_gt_point_indices) if i != -1]
 
-            # Unzip the valid pairs into separate lists
-            valid_cp_distances, valid_cp_gt_indices = zip(*valid_cp_pairs)
-            valid_ap_distances, valid_ap_gt_indices = zip(*valid_ap_pairs)
-            valid_best_ious, valid_best_gt_point_indices = zip(*valid_iou_pairs)
+            # Extract valid masks, distances, points, and gt_indices
+            valid_cp_masks, valid_cp_distances, valid_closest_points, valid_cp_gt_indices = zip(*valid_cp_quadruples)
+            valid_ap_masks, valid_ap_distances, valid_closest_anchors, valid_ap_gt_indices = zip(*valid_ap_quadruples)
+            valid_iou_masks, valid_best_ious, valid_best_gt_point_indices = zip(*valid_iou_triples)
 
             # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
             cp_precision, cp_recall, cp_f1 = precision_recall_f1(valid_cp_distances, valid_cp_gt_indices, args.threshold)
@@ -584,11 +587,11 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
                     if not os.path.exists(pano_path):
                         os.makedirs(pano_path)
                     visualize_labels(args, gt_points, pano, pano_path) # visualize labels and masks on pano
-                    visualize_debug_mask(gt_points, pred_masks, cp_distances, \
-                                        closest_points, cp_gt_indices, pano, pano_path, True) # metrics 1
-                    visualize_debug_mask(gt_points, pred_masks, ap_distances, \
-                                        closest_anchors, ap_gt_indices, pano, pano_path, False) # metrics 1.1
-                    visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices, \
+                    visualize_debug_mask(gt_points, valid_cp_masks, \
+                                        valid_closest_points, valid_cp_gt_indices, pano, pano_path, True) # metrics 1
+                    visualize_debug_mask(gt_points, valid_ap_masks, \
+                                        valid_closest_anchors, valid_ap_gt_indices, pano, pano_path, False) # metrics 1.1
+                    visualize_best_dilated(args, gt_points, valid_iou_masks, valid_best_gt_point_indices, \
                                             pano, pano_path) # metrics 2
 
 def evaluate(args, directory):

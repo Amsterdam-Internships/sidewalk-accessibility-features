@@ -215,6 +215,23 @@ def save_reoriented_panos(args):
 
     print(f"reoriented_panos.csv saved in {args.input_dir}")
 
+def remove_panos_without_metadata(args):
+    '''Remove the images that have not been reoriented because they don't have heading information'''
+    len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+    print(f'There are {len_folder} reoriented images in the folder')
+    # Open reoriented_panos.csv and collect the list of pano_id that have been reoriented
+    reoriented_csv = pd.read_csv(os.path.join(args.input_dir, 'reoriented_panos.csv'))
+    reoriented_list = reoriented_csv['pano_id'].tolist()
+
+    print(f'There are {len(reoriented_list)} reoriented images in the reoriented_panos.csv file')
+
+    # Remove using os the images that are not in the reoriented_panos.csv
+    for pano in os.listdir(os.path.join(args.input_dir, 'reoriented')):
+        if pano.split('.')[0] not in reoriented_list:
+            os.remove(os.path.join(args.input_dir, 'reoriented', pano))
+    new_len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+    print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
+
 
 def main(args):
     # DownloadRunner.py downloads each pano inside a folder. We need to move
@@ -232,6 +249,9 @@ def main(args):
 
     # Create a .csv file with the reoriented panos
     save_reoriented_panos(args)
+
+    # Remove the panos that have not been reoriented (because they don't have heading information)
+    remove_panos_without_metadata(args)
 
 
 if __name__ == '__main__':

@@ -338,6 +338,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
     parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--label_dump', type=str, default='res/labels/labels.csv')
 
     args = parser.parse_args()
 

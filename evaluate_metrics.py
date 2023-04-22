@@ -305,6 +305,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
     distances = []
     points = []
     gt_indices = []
+    is_empty = False
 
     for idx, pred_mask in enumerate(pred_masks):
         if pred_mask.ndim == 2:  # Check if the mask is 2D
@@ -325,7 +326,12 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, mask_coords)
-                local_min_distance_idx = np.argmin(dist)
+                try:
+                    local_min_distance_idx = np.argmin(dist)
+                except:
+                    print('Mask is empty.')
+                    is_empty = True
+                    break
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
@@ -375,7 +381,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 points.append([(-1, -1)])
                 gt_indices.append([-1])
 
-    return distances, points, gt_indices
+    return distances, points, gt_indices, is_empty
 
 def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     best_ious = []

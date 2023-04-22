@@ -567,14 +567,23 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
                 continue
             # Calculate mean distance between all masks and points, closest points only
             # Exclude float('inf') values
-            cp_mean_distance = np.mean(cp_distances[cp_distances != float('inf')])
+            cp_distances_array = np.array(cp_distances)
+            non_inf_indices = np.where(np.logical_not(np.isinf(cp_distances_array)))
+            cp_distances_filtered = cp_distances_array[non_inf_indices]
+            cp_mean_distance = np.mean(cp_distances_filtered)
             # Metrics 1.1: (average) mask-to-closest-anchor-point distance
             ap_distances, closest_anchors, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
-            ap_mean_distance = np.mean(ap_distances[ap_distances != float('inf')]) # anchors only
+            ap_distances_array = np.array(ap_distances)
+            non_inf_ap_indices = np.where(np.logical_not(np.isinf(ap_distances_array)))
+            ap_distances_filtered = ap_distances_array[non_inf_ap_indices]
+            ap_mean_distance = np.mean(ap_distances_filtered)
             # Metrics 2: point-to-mask best IoU
             # Exclude -1 values )
             best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
-            mean_ious = np.mean(best_ious[best_ious != -1])
+            best_ious_array = np.array(best_ious)
+            non_minus_one_indices = np.where(best_ious_array != -1)
+            best_ious_filtered = best_ious_array[non_minus_one_indices]
+            mean_ious = np.mean(best_ious_filtered)
 
             # Filter valid quadruples based on gt_indices
             valid_cp_quadruples = [(m, d, p, i) for m, d, p, i in zip(pred_masks, cp_distances, closest_points, cp_gt_indices) if i != -1]
@@ -718,7 +727,8 @@ def evaluate(args, directory):
                              'cp_precision', 'ap_precision', 'cp_recall', 'ap_recall', \
                             'cp_f1', 'ap_f1', 'cp_ap', 'ap_ap', 'ap50', 'ap75'])
         # Write a row with the first element as 'Average', and the others as metrics_df['column']
-        writer.writerow(['Average'] + list(metrics_df.mean()))
+        print(f'Saving average metrics over {len(metrics_df)} panos to avg_metrics_{args.threshold}_{args.radius}.csv')
+        writer.writerow(['Average'] + list(metrics_df.mean().round(3)))
 
 def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase

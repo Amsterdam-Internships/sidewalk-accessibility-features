@@ -13,7 +13,6 @@ import os
 import re
 import psutil
 import concurrent.futures
-import matplotlib.pyplot as plt
 
 import json
 import pycocotools.mask as mask_util
@@ -27,15 +26,10 @@ def find_masks(pano_path, pano):
     # Resize it to 2000x1000 and apply padding
     pano_mask = cv2.resize(pano_mask, (2000, 1000))
     pano_mask = np.concatenate((pano_mask[:, 1750:], pano_mask[:, :1750]), axis=1)
-
-    # Show pano_mask with matplotlib and close by pressing any key
-    plt.imshow(pano_mask)
-    plt.show()
-    plt.close()
-
+    
     # Load the image
     img = cv2.imread(os.path.join(pano_path, pano) + '.png')
-
+    
     # Define the RGB values for yellow
     yellow_rgb = np.array([255, 246, 0])
     # Define the RGB values for blue

@@ -16,6 +16,17 @@ import random
 from collections import defaultdict
 from pprint import pprint
 
+def shift_points(points):
+    # Shift points according to the padding we apply to the masks in backproject_masks_new.py
+    shifted_points = []
+    for y, x in points:
+        if x >= 1750:
+            x -= 1750
+        else:
+            x += 250
+        shifted_points.append((y, x))
+    return shifted_points
+
 def get_ps_labels(args):
 
     base_url = "https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?lat1={}&lng1={}&lat2={}&lng2={}" 
@@ -63,6 +74,9 @@ def visualize_labels(args, gt_points, pano_id, path):
     except:
         image = plt.imread(image_path)
     mask = plt.imread(mask_path)
+
+    # Pad the image to correctly visualize the mask
+    img = np.concatenate((img[:, 1750:], img[:, :1750]), axis=1)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -528,6 +542,9 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
 
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)
+
+            # Since we padded the masks, we need to apply the same padding to the ground truth points
+            gt_points = shift_points(gt_points)
             
 
             # Compute metrics

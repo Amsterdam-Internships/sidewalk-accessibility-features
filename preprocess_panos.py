@@ -294,6 +294,10 @@ def save_hq_panos(args):
 
     image_folder_path = os.path.join(args.input_dir, 'reoriented')
 
+    # Create a new folder called reoriented_hq
+    if not os.path.exists(os.path.join(args.input_dir, 'reoriented_hq')):
+        os.mkdir(os.path.join(args.input_dir, 'reoriented_hq'))
+
     # Copy the images that are in other_labels_df to a new folder called reoriented_hq
     # Make sure to filter non .jpg images
     for file in os.listdir(image_folder_path):

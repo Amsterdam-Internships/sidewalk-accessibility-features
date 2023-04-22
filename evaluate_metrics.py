@@ -28,7 +28,7 @@ def get_ps_labels(args):
 
     url = base_url.format(*coords)
 
-    local_dump = args.local_dump
+    local_dump = os.path.join(args.local_dump, 'attributesWithLabels')
 
     try:
         project_sidewalk_labels = json.load(open(local_dump, 'r'))

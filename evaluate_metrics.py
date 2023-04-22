@@ -344,32 +344,47 @@ def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     y_coords, x_coords = np.indices(pred_masks[0].shape)
     coords = np.column_stack((y_coords.ravel(), x_coords.ravel()))
 
+    # Function to determine the horizontal part of the image
+    def get_image_part(coord):
+        if 0 <= coord < 500:
+            return 0
+        elif 500 <= coord < 1000:
+            return 1
+        elif 1000 <= coord < 1500:
+            return 2
+        elif 1500 <= coord < 2000:
+            return 3
+        else:
+            raise ValueError("Invalid coordinate")
+
     for idx, pred_mask in enumerate(pred_masks):
-        max_iou = 0
+        max_iou = -1  # Initialize with -1 to distinguish cases when no IoU is calculated
         best_gt_point_index = -1
 
         for point_idx, gt_point in enumerate(gt_points):
-            # Compute the distance from the ground truth point to all other points
-            distances = cdist([gt_point], coords).reshape(pred_mask.shape)
+            gt_part = get_image_part(gt_point[0])
 
-            # Create a dilated mask by thresholding the distance matrix at the specified radius
-            gt_mask_dilated = (distances <= radius).astype(int)
+            # Check if the mask and the label are both in the same part
+            if get_image_part(np.where(pred_mask)[1]).any(lambda x: x == gt_part):
 
-            # Calculate IoU
-            intersection = np.sum(np.logical_and(gt_mask_dilated, pred_mask))
-            union = np.sum(np.logical_or(gt_mask_dilated, pred_mask))
-            iou = intersection / union
+                # Compute the distance from the ground truth point to all other points
+                distances = cdist([gt_point], coords).reshape(pred_mask.shape)
 
-            # Update the best IoU and ground truth point index
-            if iou > max_iou:
-                max_iou = iou
-                best_gt_point_index = point_idx
+                # Create a dilated mask by thresholding the distance matrix at the specified radius
+                gt_mask_dilated = (distances <= radius).astype(int)
+
+                # Calculate IoU
+                intersection = np.sum(np.logical_and(gt_mask_dilated, pred_mask))
+                union = np.sum(np.logical_or(gt_mask_dilated, pred_mask))
+                iou = intersection / union
+
+                # Update the best IoU and ground truth point index
+                if iou > max_iou:
+                    max_iou = iou
+                    best_gt_point_index = point_idx
 
         best_ious.append(max_iou)
         best_gt_point_indices.append(best_gt_point_index)
-
-    #print(f'Best IoUs: {best_ious}')
-    #print(f'Best ground truth point indices: {best_gt_point_indices}')
 
     return best_ious, best_gt_point_indices
 
@@ -377,6 +392,8 @@ def precision_recall_f1(distances, gt_indices, threshold):
     true_positives = 0
     false_positives = 0
     false_negatives = 0
+
+    assert len(distances) == len(gt_indices)
 
     matched_gt_indices = set()
 
@@ -421,6 +438,8 @@ def average_precision(distances, gt_indices, threshold):
     false_positives = 0
     n_gt_points = len(gt_indices)
 
+    assert len(distances) == len(gt_indices)
+
     matched_gt_indices = set()
 
     # Count true positives and false positives
@@ -448,9 +467,11 @@ def average_precision(distances, gt_indices, threshold):
 
     return ap
 
-def average_precision_iou(best_ious, gt_points, threshold):
-    num_gt_points = len(gt_points)
+def average_precision_iou(best_ious, best_gt_point_indices, threshold):
+    num_gt_points = len(best_gt_point_indices)
     num_pred_masks = len(best_ious)
+
+    assert num_gt_points == num_pred_masks
 
     sorted_indices = sorted(range(num_pred_masks), key=lambda i: best_ious[i], reverse=True)
     sorted_best_ious = [best_ious[i] for i in sorted_indices]
@@ -501,25 +522,38 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             cp_distances, closest_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
             if is_empty:
                 continue
-            cp_mean_distance = np.mean(cp_distances) # mean between all masks and points, closest points only
+            # Calculate mean distance between all masks and points, closest points only
+            # Exclude float('inf') values
+            cp_mean_distance = np.mean(cp_distances[cp_distances != float('inf')])
             # Metrics 1.1: (average) mask-to-closest-anchor-point distance
             ap_distances, closest_anchors, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
-            ap_mean_distance = np.mean(ap_distances) # mean between all masks and points, anchors only
+            ap_mean_distance = np.mean(ap_distances[ap_distances != float('inf')]) # anchors only
             # Metrics 2: point-to-mask best IoU
+            # Exclude -1 values )
             best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
-            mean_ious = np.mean(best_ious)
+            mean_ious = np.mean(best_ious[best_ious != -1])
+
+            # Filter out invalid pairs (distance = float('inf'), (iou, gt_idx) = (-1, -1)
+            valid_cp_pairs = [(distance, gt_idx) for distance, gt_idx in zip(cp_distances, cp_gt_indices) if gt_idx != -1]
+            valid_ap_pairs = [(distance, gt_idx) for distance, gt_idx in zip(ap_distances, ap_gt_indices) if gt_idx != -1]
+            valid_iou_pairs = [(iou, gt_idx) for iou, gt_idx in zip(best_ious, best_gt_point_indices) if gt_idx != -1]
+
+            # Unzip the valid pairs into separate lists
+            valid_cp_distances, valid_cp_gt_indices = zip(*valid_cp_pairs)
+            valid_ap_distances, valid_ap_gt_indices = zip(*valid_ap_pairs)
+            valid_best_ious, valid_best_gt_point_indices = zip(*valid_iou_pairs)
+
             # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
-            cp_precision, cp_recall, cp_f1 = precision_recall_f1(cp_distances, cp_gt_indices, args.threshold)
+            cp_precision, cp_recall, cp_f1 = precision_recall_f1(valid_cp_distances, valid_cp_gt_indices, args.threshold)
             # Metrics 3.1: Precision, Recall, F1 (already uses anchor_points based on point-to-mask distance)
-            ap_precision, ap_recall, ap_f1 = precision_recall_f1(ap_distances, ap_gt_indices, args.threshold)
+            ap_precision, ap_recall, ap_f1 = precision_recall_f1(valid_ap_distances, valid_ap_gt_indices, args.threshold)
             # Metrics 4: Average precision based on point-to-mask distance
-            cp_ap = average_precision(cp_distances, cp_gt_indices, args.threshold)
+            cp_ap = average_precision(valid_cp_distances, valid_cp_gt_indices, args.threshold)
             # Metrics 4.1: Average precision based on point-to-mask distance
-            ap_ap = average_precision(ap_distances, ap_gt_indices, args.threshold)
+            ap_ap = average_precision(valid_ap_distances, valid_ap_gt_indices, args.threshold)
             # Metrics 5: Average precision @50 and @75 based on IoU
-            # Print best ious with 3 decimals, considering that it's a list of numbers
-            ap_50 = average_precision_iou(best_ious, gt_points, threshold=0.5)
-            ap_75 = average_precision_iou(best_ious, gt_points, threshold=0.75)
+            ap_50 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.5)
+            ap_75 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.75)
                     
             # Save metrics to .csv file, adding as first column the panorama ID. Add header
             metrics = [pano, cp_mean_distance, ap_mean_distance, mean_ious, \

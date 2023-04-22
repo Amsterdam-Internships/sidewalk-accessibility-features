@@ -13,6 +13,7 @@ import os
 import re
 import psutil
 import concurrent.futures
+import matplotlib.pyplot as plt
 
 import json
 import pycocotools.mask as mask_util
@@ -23,17 +24,17 @@ def find_masks(pano_path, pano):
     # to define the left and right face cubemap images corresponding to the equirectangular image.
     # We do the same for the front and back, using the colors HSV (red: 0, 100, 100) and (green: 120, 100, 100)
     pano_mask = np.array(Image.open('res/equirectangular.png'))
-    # Resize it to 2000x1000
+    # Resize it to 2000x1000 and apply padding
     pano_mask = cv2.resize(pano_mask, (2000, 1000))
+    pano_mask = np.concatenate((pano_mask[:, 1750:], pano_mask[:, :1750]), axis=1)
+
+    # Show pano_mask with matplotlib and close by pressing any key
+    plt.imshow(pano_mask)
+    plt.show()
+    plt.close()
 
     # Load the image
     img = cv2.imread(os.path.join(pano_path, pano) + '.png')
-
-    # Cut the image (and the mask) horizontally at the last 250 pixels
-    # To apply padding and move the first half of the back face
-    # on the left side of the image
-    pano_mask = np.concatenate((pano_mask[:, 1750:], pano_mask[:, :1750]), axis=1)
-    img = np.concatenate((img[:, 1750:], img[:, :1750]), axis=1)
 
     # Define the RGB values for yellow
     yellow_rgb = np.array([255, 246, 0])
@@ -171,6 +172,8 @@ def backproject_masks(args, directory):
         # Project from cubemap to equirectangular (panorama size)
         equirectangular = py360convert.c2e([front, cv2.flip(right, 1), cv2.flip(back, 1), left, cv2.flip(top, 0), bottom], \
                                         w=2000, h=1000, mode='bilinear', cube_format='list')
+        # Apply padding 
+        equirectangular = np.concatenate((equirectangular[:, 1750:], equirectangular[:, :1750]), axis=1)
         cv2.imwrite(os.path.join(backproject_pano_path, f'{pano}.png'), equirectangular)
 
         # Convert the masks to panorama sizes ones

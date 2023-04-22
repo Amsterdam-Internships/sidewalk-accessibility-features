@@ -76,7 +76,7 @@ def visualize_labels(args, gt_points, pano_id, path):
     mask = plt.imread(mask_path)
 
     # Pad the image to correctly visualize the mask
-    img = np.concatenate((img[:, 1750:], img[:, :1750]), axis=1)
+    image = np.concatenate((image[:, 1750:], image[:, :1750]), axis=1)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)

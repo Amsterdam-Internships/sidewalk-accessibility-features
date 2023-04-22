@@ -65,6 +65,7 @@ def reproject_panos(args, root_dir):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    # TODO: Probably not needed anymore with the new reprojection algorithm
     # Copy img_list and remove extensions from img_list_copy
     img_list_copy = img_list.copy()
     for i in range(len(img_list_copy)):
@@ -153,9 +154,9 @@ def main(args):
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
     if args.seg:
-        reoriented_folder = 'reoriented_seg'
+        reoriented_folder = f'{args.reoriented_dir}_seg'
     else:
-        reoriented_folder = 'reoriented'
+        reoriented_folder = args.reoriented_dir
 
     if args.ps:
         args.input_dir = os.path.join(args.input_dir, reoriented_folder)
@@ -174,6 +175,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
    
     parser.add_argument('--input_dir', type=str, default = 'res/dataset')
+    parser.add_argument('--reoriented_dir', type=str, default = 'reoriented')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--size', type=int, default = 512)

@@ -16,7 +16,8 @@ def create_testset(input_dir1, input_dir2, size, reorient, random_seed):
         common_files = set(os.listdir(input_dir1)).intersection(set(os.listdir(input_dir2)))
 
     if len(common_files) < size:
-        raise ValueError("Not enough common items to satisfy the requested size.")
+        print(f'Error. Not enough common items to satisfy the requested size. Scaling down to {len(common_files)}.')
+        size = len(common_files)
 
     selected_files = sample(common_files, size)
 

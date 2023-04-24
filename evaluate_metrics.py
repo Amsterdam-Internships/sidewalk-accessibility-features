@@ -119,8 +119,13 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
     num_rows = int(np.ceil(num_masks / 2))
     fig, axes = plt.subplots(num_rows, 2, figsize=(10, 3 * num_rows))
 
-    flattened_closest_points = [p for sublist in closest_points for p in sublist]
-    flattened_gt_indices = [i for sublist in gt_indices for i in sublist]
+    # Flatten closest_points and gt_indices, handling the case of single values
+    flattened_closest_points = [
+        p for sublist in closest_points for p in (sublist if isinstance(sublist, (list, np.ndarray)) else [sublist])
+    ]
+    flattened_gt_indices = [
+        i for sublist in gt_indices for i in (sublist if isinstance(sublist, (list, np.ndarray)) else [sublist])
+    ]
 
     assert len(flattened_closest_points) == len(flattened_gt_indices)
 
@@ -139,7 +144,7 @@ def visualize_debug_mask(gt_points, pred_masks, closest_points, gt_indices, pano
         closest_point = flattened_closest_points[idx]
 
         y, x = gt_point
-        closest_y, closest_x = closest_point
+        closest_y, closest_x = tuple(closest_point)
 
         ax.scatter(x, y, c='red', marker='x', s=20, label='Ground Truth')  # Mark the ground truth point
         ax.plot([x, closest_x], [y, closest_y], 'r--', label='Distance')  # Draw the distance line
@@ -201,6 +206,10 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices_li
             ax = axes[row_idx, col_idx]
         else:
             ax = axes[col_idx]
+
+        # Ensure best_gt_point_indices is a list
+        if not isinstance(best_gt_point_indices, (list, np.ndarray)):
+            best_gt_point_indices = [best_gt_point_indices]
         
         label_added = False
         for best_gt_point_idx in best_gt_point_indices:
@@ -212,14 +221,14 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices_li
             # Create a dilated mask by thresholding the distance matrix at the specified radius
             gt_mask_dilated = (distances <= args.radius).astype(int)
 
-            # Display the dilated ground truth mask
-            ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
-
             if not label_added:
-                ax.imshow(best_gt_point, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+                # Display the dilated ground truth mask
+                ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+                ax.scatter(best_gt_point[1], best_gt_point[0], s=50, c='red', marker='x', label='Ground Truth')
                 label_added = True
             else:
-                ax.imshow(best_gt_point, alpha=0.5, cmap='gray')
+                ax.imshow(gt_mask_dilated, alpha=0.5, cmap='gray')
+                ax.scatter(best_gt_point[1], best_gt_point[0], s=50, c='red', marker='x')
 
         # Display the predicted mask
         ax.imshow(pred_mask, alpha=0.5, cmap='jet', label='Predicted Mask')
@@ -359,6 +368,7 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
             anchor_point = np.mean(mask_coords, axis=0)
             mask_distances = []
             mask_gt_indices = []
+            anchor_points = []
 
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
@@ -370,12 +380,13 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
 
                 if gt_part == anchor_point_part:
                     mask_distances.append(local_min_distance)
+                    anchor_points.append(tuple(anchor_point))
                     mask_gt_indices.append(gt_idx)
 
             # If there are no points in the same part, append a large distance and a dummy point
             if len(mask_distances) > 0:
                 distances.append(mask_distances)
-                points.append(mask_points)
+                points.append(anchor_points)
                 gt_indices.append(mask_gt_indices)
             else:
                 distances.append([float('inf')])
@@ -442,6 +453,13 @@ def precision_recall_f1(distances, gt_indices, threshold):
 
     # Count true positives and false positives
     for dist_list, idx_list in zip(distances, gt_indices):
+        # Handle the case where there is only one valid ground truth point
+        if not isinstance(dist_list, (list, np.ndarray)):
+            dist_list = [dist_list]
+        if not isinstance(idx_list, (list, np.ndarray)):
+            idx_list = [idx_list]
+
+    for distance, gt_idx in zip(dist_list, idx_list):
         for distance, gt_idx in zip(dist_list, idx_list):
             if distance <= threshold:
                 true_positives += 1
@@ -450,7 +468,7 @@ def precision_recall_f1(distances, gt_indices, threshold):
                 false_positives += 1
 
     # Count false negatives
-    all_gt_indices = {i for idx_list in gt_indices for i in idx_list}
+    all_gt_indices = {i for idx_list in gt_indices for i in (idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list])}
     false_negatives = len(all_gt_indices) - len(matched_gt_indices)
 
     '''True Negative (TN) — Background region correctly not detected by the model. 
@@ -481,13 +499,18 @@ def average_precision(distances, gt_indices, threshold):
     true_positives = []
     false_positives = []
 
-    all_gt_indices = {i for idx_list in gt_indices for i in idx_list}
+    all_gt_indices = {i for idx_list in gt_indices for i in (idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list])}
     n_gt_points = len(all_gt_indices)
 
     assert len(distances) == len(gt_indices)
 
     # Count true positives and false positives
     for dist_list, idx_list in zip(distances, gt_indices):
+        # Handle the case where there is only one valid ground truth point
+        if not isinstance(dist_list, (list, np.ndarray)):
+            dist_list = [dist_list]
+        if not isinstance(idx_list, (list, np.ndarray)):
+            idx_list = [idx_list]
         for distance, gt_idx in zip(dist_list, idx_list):
             if distance <= threshold:
                 true_positives.append(1)
@@ -514,10 +537,10 @@ def average_precision(distances, gt_indices, threshold):
     return ap
 
 def average_precision_iou(best_ious, best_gt_point_indices, threshold):
-    all_best_gt_indices = {i for idx_list in best_gt_point_indices for i in idx_list}
+    all_best_gt_indices = {i for idx_list in best_gt_point_indices for i in (idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list])}
     num_gt_points = len(all_best_gt_indices)
 
-    flattened_best_ious = [iou for iou_list in best_ious for iou in iou_list]
+    flattened_best_ious = [iou for iou_list in best_ious for iou in (iou_list if isinstance(iou_list, (list, np.ndarray)) else [iou_list])]
 
     num_pred_masks = len(flattened_best_ious)
 
@@ -590,11 +613,24 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
 
             # Filter valid quadruples based on gt_indices
             valid_cp_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, cp_distances, cp_points, cp_gt_indices)
-                                for d, p, i in zip(dist_list, point_list, idx_list) if i != -1]
+                    for d, p, i in zip(
+                        dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
+                        point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
+                        idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+                    ) if i != -1]
+
             valid_ap_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, ap_distances, ap_points, ap_gt_indices)
-                                for d, p, i in zip(dist_list, point_list, idx_list) if i != -1]
+                                for d, p, i in zip(
+                                    dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
+                                    point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
+                                    idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+                                ) if i != -1]
+
             valid_iou_triples = [(m, iou, i) for m, iou_list, idx_list in zip(pred_masks, best_ious, best_gt_point_indices)
-                                for iou, i in zip(iou_list, idx_list) if i != -1]
+                                for iou, i in zip(
+                                    iou_list if isinstance(iou_list, (list, np.ndarray)) else [iou_list],
+                                    idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+                                ) if i != -1]
 
             # Extract valid masks, distances, points, and gt_indices
             valid_cp_masks, valid_cp_distances, valid_closest_points, valid_cp_gt_indices = zip(*valid_cp_quadruples)

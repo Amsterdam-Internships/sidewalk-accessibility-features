@@ -16,6 +16,25 @@ import random
 from collections import defaultdict
 from pprint import pprint
 
+def reorient_point(point, img_size, heading):
+    # We select a tolerance of 0.1 degrees so that 
+    # the point is not reoriented if the heading is close to 0
+    tolerance = 0.1
+    if abs(heading) <= tolerance:
+        return point
+
+    else:
+        # Reshift point according to heading
+        shift = heading / 360
+        pixel_split = int(img_size[0] * shift)
+        
+        y, x = point
+        new_x = (x - pixel_split) % img_size[0]
+
+        reoriented_point = (y, new_x)
+        
+        return reoriented_point
+
 def shift_points(points):
     # Shift points according to the padding we apply to the masks in backproject_masks_new.py
     shifted_points = []
@@ -586,6 +605,15 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
 
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)
+
+            # Since we reoriented the panos, we need to apply the same reorientation to the ground truth points
+            # Find the heading of the pano in reoriented_panos.csv
+            reoriented_panos = pd.read_csv(os.path.join(os.path.dirname(args.input_dir), "reoriented_panos.csv"))
+            # Find the pano in the reoriented panos dataframe and take its heading
+            pano_heading = reoriented_panos[reoriented_panos["pano_id"] == pano]["heading"].values[0]
+
+            for i in range(len(gt_points)):
+                gt_points[i] = reorient_point(gt_points[i], (2000,1000), pano_heading)
 
             # Since we padded the masks, we need to apply the same padding to the ground truth points
             gt_points = shift_points(gt_points)

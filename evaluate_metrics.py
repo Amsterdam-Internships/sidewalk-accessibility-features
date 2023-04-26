@@ -602,6 +602,7 @@ def evaluate_single_batch(args, batch, other_labels_df, directory):
             print(f"Evaluating {pano}...")
             pred_masks = panos[pano]
             n_masks = len(panos[pano])
+            print(f'Number of masks: {n_masks}')
 
             # Compute label coordinates for pano
             gt_points = compute_label_coordinates(args, other_labels_df, pano)

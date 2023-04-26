@@ -132,6 +132,8 @@ def fetch_pano_ids_from_webserver():
 
 def resize_panos(args, size):
     print(f'Resizing panos in {args.input_dir} to {size}...')
+    if args.blacken:
+        print('Also blackening 200px from the top and 100px from the bottom of the panos.')
 
     def resize_image(filename):
         if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
@@ -143,6 +145,11 @@ def resize_panos(args, size):
         if img.size == size:
             return
         resized_img = img.resize(size, Image.Resampling.LANCZOS)
+        if args.blacken:
+            # Make 200px from the top and 100px from the bottom black
+            resized_img.paste((0, 0, 0), (0, 0, size[0], 200))
+            resized_img.paste((0, 0, 0), (0, size[1] - 100, size[0], size[1]))
+
         resized_img.save(pano_path)
 
     # Calculate max_threads based on CPU capacity
@@ -316,6 +323,7 @@ def main(args):
     move_panos_to_root(args.input_dir)
 
     # Resize panos from 16384x8192 to 2000x1000
+    # Experiment: blacken part of the pano (if args.crop == True)
     resize_panos(args, (2000, 1000))
 
     # Scrape the metadata of the panos (heading, lat/lng)
@@ -342,6 +350,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
     parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument('--blacken', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--label_dump', type=str, default='res/labels/labels.csv')
 
     args = parser.parse_args()

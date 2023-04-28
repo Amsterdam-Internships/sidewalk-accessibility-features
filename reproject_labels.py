@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from lib.py360convert import py360convert
+from tqdm import tqdm
 
 def compute_label_coordinates(dataframe, shape):
 
@@ -49,6 +50,7 @@ def reorient_point(point, img_size, heading):
         return reoriented_point
 
 def reorient_labels(args, dataframe):
+    print('Reorienting labels...')
     # Retrieve pano.csv with headings information
     panos_df = pd.read_csv(args.panos_csv_path)
 
@@ -75,19 +77,27 @@ def reorient_labels(args, dataframe):
     # the pano id in the 'gsv_panorama_id' column. Find the heading for each label by matching the pano_id
     # and use it as arguments in reorient_label(heading)
     gt_points = []
-    for index, row in dataframe.iterrows():
+    for index, row in tqdm(dataframe.iterrows()):
         pano_id = row['gsv_panorama_id']
-        heading = panos_df.loc[panos_df['pano_id'] == pano_id]['heading'].values[0]
-        gt_points.append(reorient_point((row['scaled_pano_y'], row['scaled_pano_x']), (args.pano_height, args.pano_width), heading))
+        filtered_panos_df = panos_df.loc[panos_df['pano_id'] == pano_id]
+
+        # Check the case in which the pano could not be downloaded due to API failure
+        if not filtered_panos_df.empty:
+            heading = filtered_panos_df['heading'].values[0]
+            gt_points.append(reorient_point((row['scaled_pano_y'], row['scaled_pano_x']),
+                                            (args.pano_height, args.pano_width), heading))
+        else:
+            gt_points.append((-1, -1))
 
     # Add the new columns to the dataframe
     dataframe['reoriented_pano_x'] = [point[1] for point in gt_points]
     dataframe['reoriented_pano_y'] = [point[0] for point in gt_points]
 
+    print('Done!')
     return dataframe
 
 def reproject_labels(args, dataframe):
-    
+    print('Reprojecting labels...')
     def reproject_point(y, x, pano_height, pano_width, face_w=256):
         # Step 1: Convert (y, x) to UV coordinates
         coor = np.array([x, y])
@@ -115,15 +125,19 @@ def reproject_labels(args, dataframe):
     
     # face_idx, (y_proj,x_project)
     gt_points = []
-    for index, row in dataframe.iterrows():
-        gt_points.append(reproject_point((row['reoriented_pano_y'], row['reoriented_pano_x']), \
-                                         (args.pano_height, args.pano_width), args.size))
+    for index, row in tqdm(dataframe.iterrows()):
+        if row['reoriented_pano_x'] == -1:
+            gt_points.append((-1, (-1, -1)))
+        else:
+            gt_points.append(reproject_point(row['reoriented_pano_y'], row['reoriented_pano_x'], \
+                                         args.pano_height, args.pano_width, args.size))
 
     # Add the new columns to the dataframe
     dataframe['face_idx'] = [point[0] for point in gt_points]
     dataframe['reprojected_pano_x'] = [point[1][1] for point in gt_points]
     dataframe['reprojected_pano_y'] = [point[1][0] for point in gt_points]
 
+    print('Done!')
     return dataframe
 
 def main(args):
@@ -139,8 +153,11 @@ def main(args):
     # 2. Reproject the labels (add the columns face_idx, reprojected_pano_x and reprojected_pano_y)
     reprojected_labels_df = reproject_labels(args, reoriented_labels_df)
 
+    # 2.1. Remove the labels that could not be reprojected (face_idx = -1)
+    reprojected_labels_df = reprojected_labels_df.loc[reprojected_labels_df['face_idx'] != -1]
+
     # 3. Save the dataframe as a csv file
-    reprojected_labels_df.to_csv(args.labels_csv_path[:-4] + '_reprojected.csv', index=False)
+    reprojected_labels_df.to_csv(args.labels_csv_path[:-4] + f'_{args.size}_reprojected.csv', index=False)
 
 if __name__ == '__main__':
 

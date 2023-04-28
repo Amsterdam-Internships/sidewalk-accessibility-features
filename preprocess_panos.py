@@ -130,7 +130,8 @@ def fetch_pano_ids_from_webserver():
     #print(pano_info[:10])
     return pano_info
 
-def resize_panos(args, size):
+def resize_panos(args):
+    size = (args.pano_width, args.pano_height)
     print(f'Resizing panos in {args.input_dir} to {size}...')
     if args.blacken:
         print('Also blackening 200px from the top and 100px from the bottom of the panos.')
@@ -322,9 +323,8 @@ def main(args):
     # the images to the root of the folder.
     move_panos_to_root(args.input_dir)
 
-    # Resize panos from 16384x8192 to 2000x1000
-    # Experiment: blacken part of the pano (if args.crop == True)
-    resize_panos(args, (2000, 1000))
+    # Resize panos from 16384x8192 to (args.width)x(args.height)
+    resize_panos(args)
 
     # Scrape the metadata of the panos (heading, lat/lng)
     scrape_metadata(args)
@@ -349,6 +349,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
+    parser.add_argument('--pano_width', type=int, default=2048, help='panorama width')
+    parser.add_argument('--pano_height', type=int, default=1024, help='panorama height')
     parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--blacken', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--label_dump', type=str, default='res/labels/labels.csv')

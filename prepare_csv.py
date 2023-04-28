@@ -65,10 +65,10 @@ def main(args):
     # Save the filtered panos to a .csv file called panos_hq.csv using .unique
     # Replace "'" with "" in the gsv_panorama_id column
     other_labels_df['gsv_panorama_id'] = other_labels_df['gsv_panorama_id'].str.replace("'", "")
-    # Save the filtered panos to a .csv file called panos_hq.csv
-    # With each line containing a unique gsv_panorama_id
+    # Save the filtered panos to a .csv file called panos_hq.csv, with each line containing a unique
+    # gsv_panorama_id. First, convert it to a panda dataframe. Then, add a header called 'pano_id'.
     panos_path = os.path.join(args.output_dir, 'panos_hq.csv')
-    other_labels_df['gsv_panorama_id'].unique().tofile(panos_path, sep='\n', format='%s')
+    pd.DataFrame(other_labels_df['gsv_panorama_id'].unique(), columns=['pano_id']).to_csv(panos_path, index=False)
 
 if __name__ == '__main__':
 

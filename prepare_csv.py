@@ -70,5 +70,5 @@ other_labels_df.to_csv('labels.csv', index=False)
 other_labels_df['gsv_panorama_id'] = other_labels_df['gsv_panorama_id'].str.replace("'", "")
 # Save the filtered panos to a .csv file called panos_hq.csv
 # With each line containing a unique gsv_panorama_id
-other_labels_df['gsv_panorama_id'].unique().tofile('panos_hq.csv', sep='\n', format='%s', header='pano_id')
+other_labels_df['gsv_panorama_id'].unique().tofile('panos_hq.csv', sep='\n', format='%s')
 

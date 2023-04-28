@@ -245,8 +245,10 @@ def remove_panos_without_metadata(args):
 
     # Remove using os the images that are not in the reoriented_panos.csv
     for pano in os.listdir(reoriented_path):
-        if pano.split('.')[0] not in reoriented_list:
-            os.remove(reoriented_path, pano)
+        # Don't remove .csv files
+        if pano.split('.')[1] != 'csv':
+            if pano.split('.')[0] not in reoriented_list:
+                os.remove(os.path.join(reoriented_path, pano))
     new_len_folder = len(os.listdir(reoriented_path))
     print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
 
@@ -303,8 +305,10 @@ def main(args):
     scrape_metadata(args)
 
     # Reorient the panos
-    subprocess.run(["python", "reorient_panos.py", f'--input_dir={args.input_dir} \
-                    --pano_width={args.pano_width} --pano_height={args.pano_height}'])
+    subprocess.run(["python", "reorient_panos.py", 
+                f'--input_dir={args.input_dir}',
+                f'--pano_width={args.pano_width}',
+                f'--pano_height={args.pano_height}'])
 
     # Create a .csv file with the reoriented panos
     save_reoriented_panos(args)

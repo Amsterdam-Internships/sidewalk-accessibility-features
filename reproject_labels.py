@@ -50,7 +50,7 @@ def reorient_point(point, img_size, heading):
 
 def reorient_labels(args, dataframe):
     # Retrieve pano.csv with headings information
-    panos_df = pd.read_csv(args.csv_path)
+    panos_df = pd.read_csv(args.panos_csv_path)
 
     def reorient_point(point, img_size, heading):
         # We select a tolerance of 0.1 degrees so that 
@@ -78,7 +78,7 @@ def reorient_labels(args, dataframe):
     for index, row in dataframe.iterrows():
         pano_id = row['gsv_panorama_id']
         heading = panos_df.loc[panos_df['pano_id'] == pano_id]['heading'].values[0]
-        gt_points.append(reorient_point((row['scaled_pano_y'], row['scaled_pano_x']), (args.original_pano_height, args.original_pano_width), heading))
+        gt_points.append(reorient_point((row['scaled_pano_y'], row['scaled_pano_x']), (args.pano_height, args.pano_width), heading))
 
     # Add the new columns to the dataframe
     dataframe['reoriented_pano_x'] = [point[1] for point in gt_points]
@@ -117,7 +117,7 @@ def reproject_labels(args, dataframe):
     gt_points = []
     for index, row in dataframe.iterrows():
         gt_points.append(reproject_point((row['reoriented_pano_y'], row['reoriented_pano_x']), \
-                                         (args.original_pano_height, args.original_pano_width), args.reprojected_size))
+                                         (args.pano_height, args.pano_width), args.size))
 
     # Add the new columns to the dataframe
     dataframe['face_idx'] = [point[0] for point in gt_points]
@@ -128,10 +128,10 @@ def reproject_labels(args, dataframe):
 
 def main(args):
     # Load the csv file containing the labels using pandas
-    labels_df = pd.read_csv(args.csv_path)
+    labels_df = pd.read_csv(args.labels_csv_path)
 
     # Add the scaled coordinates to the dataframe
-    scaled_labels_df = compute_label_coordinates(labels_df, (args.original_pano_height, args.original_pano_width))
+    scaled_labels_df = compute_label_coordinates(labels_df, (args.pano_height, args.pano_width))
 
     # 1. Reorient the labels (add the columns reoriented_pano_x and reoriented_pano_y)
     reoriented_labels_df = reorient_labels(args, scaled_labels_df)
@@ -140,17 +140,17 @@ def main(args):
     reprojected_labels_df = reproject_labels(args, reoriented_labels_df)
 
     # 3. Save the dataframe as a csv file
-    reprojected_labels_df.to_csv(args.csv_path[:-4] + '_reprojected.csv', index=False)
+    reprojected_labels_df.to_csv(args.labels_csv_path[:-4] + '_reprojected.csv', index=False)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
    
-    parser.add_argument('--csv_path', type=str, default = 'res/dataset/panos.csv')
-    parser.add_argument('--original_pano_dir', type=str, default = 'res/dataset/original_panos')
-    parser.add_argument('--original_pano_width', type=int, default = 2048)
-    parser.add_argument('--original_pano_height', type=int, default = 1024)
-    parser.add_argument('--reprojected_size', type=int, default = 512)
+    parser.add_argument('--panos_csv_path', type=str, default = 'res/dataset/panos.csv')
+    parser.add_argument('--labels_csv_path', type=str, default = 'res/dataset/labels.csv')
+    parser.add_argument('--pano_width', type=int, default = 2048)
+    parser.add_argument('--pano_height', type=int, default = 1024)
+    parser.add_argument('--size', type=int, default = 512)
     
     args = parser.parse_args()
     

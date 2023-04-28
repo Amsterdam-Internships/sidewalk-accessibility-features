@@ -281,7 +281,7 @@ def remove_panos_without_metadata(args):
     print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
 
 def save_hq_panos(args):
-    # Get Project Sidewalk labels from API
+    '''# Get Project Sidewalk labels from API
     ps_labels_df = get_ps_labels(args)
     # Get the labels from another API endpoint
     other_labels_df = get_xy_coords_ps_labels()
@@ -298,7 +298,10 @@ def save_hq_panos(args):
     # Select the unique pano ids from gsv_panorama_id column in other_labels_df
     other_labels_df = other_labels_df['gsv_panorama_id'].unique()
 
-    print(f'Number of panos containing only obstacles as labels: {len(other_labels_df)}')
+    print(f'Number of panos containing only obstacles as labels: {len(other_labels_df)}')'''
+
+    # Load labels from the CSV file
+    other_labels_df = pd.read_csv(args.label_dump)
 
     image_folder_path = os.path.join(args.input_dir, 'reoriented')
 

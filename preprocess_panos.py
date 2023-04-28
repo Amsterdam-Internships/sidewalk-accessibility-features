@@ -341,11 +341,11 @@ def main(args):
     # Remove the panos that have not been reoriented (because they don't have heading information)
     remove_panos_without_metadata(args)
 
-    if args.filter:
+    '''if args.filter:
         # Filter the panos that have high quality obstacles labels
         print('Filtering the panos that have high quality obstacles labels...')
         save_hq_panos(args)
-        print('Done!')
+        print('Done!')'''
 
 
 if __name__ == '__main__':
@@ -354,7 +354,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', type=str, default='res/dataset', help='input directory')
     parser.add_argument('--pano_width', type=int, default=2048, help='panorama width')
     parser.add_argument('--pano_height', type=int, default=1024, help='panorama height')
-    parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
+    #parser.add_argument('--filter', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--blacken', type=bool, default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument('--label_dump', type=str, default='res/labels/labels.csv')
 

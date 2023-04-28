@@ -43,7 +43,6 @@ def get_xy_coords_ps_labels():
 
     return other_labels_df
 
-
 # Get Project Sidewalk labels from API
 ps_labels_df = get_ps_labels()
 # Get the labels from another API call
@@ -61,5 +60,15 @@ print(f'Number of obstacles labels in other_labels_df after filtering for high q
 # Count the number of panos (unique gsv_panorama_id)
 print(f'Number of panos with obstacles labels: {len(other_labels_df["gsv_panorama_id"].unique())}')
 
+# 2. labels.csv
 # Save the filtered labels to a .csv file called labels.csv
 other_labels_df.to_csv('labels.csv', index=False)
+
+# 1. panos_hq.csv
+# Save the filtered panos to a .csv file called panos_hq.csv using .unique
+# Replace "'" with "" in the gsv_panorama_id column
+other_labels_df['gsv_panorama_id'] = other_labels_df['gsv_panorama_id'].str.replace("'", "")
+# Save the filtered panos to a .csv file called panos_hq.csv
+# With each line containing a unique gsv_panorama_id
+other_labels_df['gsv_panorama_id'].unique().tofile('panos_hq.csv', sep='\n', format='%s', header='pano_id')
+

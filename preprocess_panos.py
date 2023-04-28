@@ -338,7 +338,8 @@ def main(args):
     scrape_metadata(args)
 
     # Reorient the panos
-    subprocess.run(["python", "reorient_panos.py", f'--input_dir={args.input_dir}'])
+    parent_dir = os.path.dirname(args.input_dir)
+    subprocess.run(["python", "reorient_panos.py", f'--input_dir={parent_dir}'])
 
     # Create a .csv file with the reoriented panos
     save_reoriented_panos(args)

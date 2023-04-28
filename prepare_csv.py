@@ -20,14 +20,7 @@ def get_ps_labels():
 
     url = base_url.format(*coords)
 
-    local_dump = url.replace('/', '|')
-
-    try:
-        project_sidewalk_labels = json.load(open(local_dump, 'r'))
-    except Exception as e:
-        print("Couldn't load local dump")
-        project_sidewalk_labels = requests.get(url.format(*coords)).json()
-        json.dump(project_sidewalk_labels, open(local_dump, 'w'))
+    project_sidewalk_labels = requests.get(url.format(*coords)).json()
 
     ps_labels_df = gpd.GeoDataFrame.from_features(project_sidewalk_labels['features'])
     # Print length before filtering

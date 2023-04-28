@@ -54,7 +54,7 @@ def split(args, img_path, directory):
     cv2.imwrite(f'{directory}/back.png', back)
     cv2.imwrite(f'{directory}/left.png', left)
 
-def reproject_panos(args, root_dir):
+def reproject_panos(args):
     # Define list of images in the input directory, skip other formats
     img_list = [img for img in os.listdir(args.input_dir) if img.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))]
     print(f'Number of reoriented panos in {args.input_dir}: {len(img_list)}')
@@ -138,7 +138,7 @@ def reproject_panos(args, root_dir):
         df = pd.DataFrame(panos, columns=['pano_id'])
 
     # Save the DataFrame to the .csv file
-    df_path = os.path.join(root_dir, csv_file)
+    df_path = os.path.join({args.output_dir}, csv_file)
     df.to_csv(df_path, index=False)
 
     print(f"Reprojected panos saved to '{df_path}'.")
@@ -148,27 +148,17 @@ def reproject_panos(args, root_dir):
 
 def main(args):
 
-    root_dir = args.input_dir
-
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
-
-    if args.seg:
-        reoriented_folder = f'{args.reoriented_dir}_seg'
-    else:
-        reoriented_folder = args.reoriented_dir
-
-    if args.ps:
-        args.input_dir = os.path.join(args.input_dir, reoriented_folder)
-    else:
-        args.input_dir = os.path.join(args.input_dir, args.neighbourhood)
-        args.input_dir = args.input_dir + '_' + args.quality
-        args.input_dir = os.path.join(args.input_dir, reoriented_folder)
 
     print(f'Input directory: {args.input_dir}')
     print(f'Output directory: {args.output_dir}')
 
-    reproject_panos(args, root_dir)
+    reproject_panos(args)
+
+    # After reorienting and reprojecting the panos, we need to reorient and reproject the labels too.
+    reproject_labels(args)
+
 
 if __name__ == '__main__':
 

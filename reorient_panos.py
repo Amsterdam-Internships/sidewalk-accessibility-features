@@ -48,21 +48,16 @@ def orient_single_pano(img, heading):
 
 
 def orient_panos(args):
-
-     # Define path to .csv
-    if args.ps:
-        path = args.input_dir
-    else:
-        path = os.path.join(args.input_dir, args.neighbourhood)
-        path = path + '_' + args.quality
     
-    csvpath = os.path.join(path, 'panos.csv')
+    csvpath = os.path.join(args.input_dir, 'panos.csv')
     csv = pd.read_csv(csvpath)
 
     print(f'Number of panos in panos.csv: {len(csv)}')
 
     # Define output directory
-    directory = os.path.join(path, 'reoriented')
+    # Go one level up to the parent directory
+    parent_dir = os.path.dirname(args.input_dir)
+    directory = os.path.join(parent_dir, 'reoriented')
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -78,16 +73,16 @@ def orient_panos(args):
 
     for reoriented in reoriented_list:
         # Remove the original image from the folder
-        if os.path.exists(os.path.join(path, reoriented) + '.jpg'):
-            os.remove(os.path.join(path, reoriented) + '.jpg')
+        if os.path.exists(os.path.join(args.input_dir, reoriented) + '.jpg'):
+            os.remove(os.path.join(args.input_dir, reoriented) + '.jpg')
 
     def process_image(index, row):
         img_filename = row['pano_id']
         
-        img = Image.open(os.path.join(path, img_filename) + '.jpg', formats=['JPEG'])
+        img = Image.open(os.path.join(args.input_dir, img_filename) + '.jpg', formats=['JPEG'])
 
         # Temporary check to see if the image has not been resized
-        if img.size != (2000,1000):
+        if img.size != (args.pano_width,args.pano_height):
             print('Image not resized: ' + img_filename)
             return
         else:
@@ -96,14 +91,14 @@ def orient_panos(args):
         if not (bool):
             # Save in a .csv file the panoramas that were not reoriented
             # Make sure to go a new line after each entry
-            with open(os.path.join(path, 'not_reoriented.csv'), 'a') as f:
+            with open(os.path.join(directory, 'not_reoriented.csv'), 'a') as f:
                 f.write(img_filename + ',' + str(heading) + '\n')
 
         # Save the image in the reoriented folder
         reoriented_img.save(os.path.join(directory, img_filename) + '.jpg', 'JPEG')
         # Cancel the original image with name "img_filename" and path "path". Check first if it exists
-        if os.path.exists(os.path.join(path, img_filename) + '.jpg'):
-            os.remove(os.path.join(path, img_filename) + '.jpg')
+        if os.path.exists(os.path.join(args.input_dir, img_filename) + '.jpg'):
+            os.remove(os.path.join(args.input_dir, img_filename) + '.jpg')
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
@@ -130,6 +125,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
    
     parser.add_argument('--input_dir', type=str, default = 'res/dataset') 
+    parser.add_argument('--pano_width', type=int, default=2048, help='panorama width')
+    parser.add_argument('--pano_height', type=int, default=1024, help='panorama height')
     parser.add_argument('--quality', type=str, default='full')
     parser.add_argument('--neighbourhood', type=str, default='osdorp')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)

@@ -224,7 +224,7 @@ def main(args):
         sidewalk_server_domain = 'sidewalk-amsterdam.cs.washington.edu'
         storage_path = args.output_dir
         subprocess.run(["python", "lib/sidewalk-panorama-tools/DownloadRunner.py", \
-                        sidewalk_server_domain, storage_path])
+                        sidewalk_server_domain, storage_path, args.filter_panos_dir])
         
 
     else:
@@ -242,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('--timestamp_after', type=str, default='2023-01-01')  
     parser.add_argument('--quality', type=str, default='small')
     parser.add_argument('--output_dir', type=str, default = 'res/dataset')
+    parser.add_argument('--filter_panos_dir', type=str, default='download_PS')
     parser.add_argument('--projection', type=str, default='4326')
     parser.add_argument('--ps', type=bool, default=True, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()

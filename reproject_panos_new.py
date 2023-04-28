@@ -38,10 +38,6 @@ def split(args, img_path, directory):
     size = args.size
     front, right, back, left, top, bottom = py360convert.e2c(img, face_w=size, mode='bilinear', cube_format='list')
 
-    # Flip right and back horizontally, top vertically
-    right = cv2.flip(right, 1)
-    back = cv2.flip(back, 1)
-
     # make directory, with panoid as name, to save them in
     folder = img_path.split('.')[0]
     directory = os.path.join(directory, folder)

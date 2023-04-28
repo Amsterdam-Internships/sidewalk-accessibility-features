@@ -239,12 +239,13 @@ def scrape_metadata(args):
     print(f'Done! panos_coords.csv saved in {args.input_dir}.')
 
 def save_reoriented_panos(args):
-    # Change the folder path to your desired folder
-    image_folder_path = os.path.join(args.input_dir, 'reoriented')
+    # Take the dirname of args.input_dir
+    parent_dir = os.path.dirname(args.input_dir)
+    reoriented_path = os.path.join(parent_dir, 'reoriented')
 
     # Collect the names of the images without the extension
     image_names = []
-    for file in os.listdir(image_folder_path):
+    for file in os.listdir(reoriented_path):
         file_name, file_extension = os.path.splitext(file)
         if file_extension.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
             image_names.append(file_name)
@@ -258,26 +259,30 @@ def save_reoriented_panos(args):
     # Remove duplicates based on the pano_id column
     filtered_df_panos = filtered_df_panos.drop_duplicates(subset=['pano_id'])
 
-    # Save the filtered dataframe to a new .csv file in image_folder_path
+    # Save the filtered dataframe to a new .csv file in reoriented_path
     filtered_df_panos.to_csv(f'{args.input_dir}/reoriented_panos.csv', index=False)
 
     print(f"reoriented_panos.csv saved in {args.input_dir}")
 
 def remove_panos_without_metadata(args):
+    # Take the dirname of args.input_dir
+    parent_dir = os.path.dirname(args.input_dir)
+    reoriented_path = os.path.join(parent_dir, 'reoriented')
+
     '''Remove the images that have not been reoriented because they don't have heading information'''
-    len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+    len_folder = len(os.listdir(reoriented_path))
     print(f'There are {len_folder} reoriented images in the folder')
     # Open reoriented_panos.csv and collect the list of pano_id that have been reoriented
-    reoriented_csv = pd.read_csv(os.path.join(args.input_dir, 'reoriented_panos.csv'))
+    reoriented_csv = pd.read_csv(os.path.join(reoriented_path, 'reoriented_panos.csv'))
     reoriented_list = reoriented_csv['pano_id'].tolist()
 
     print(f'There are {len(reoriented_list)} reoriented images in the reoriented_panos.csv file')
 
     # Remove using os the images that are not in the reoriented_panos.csv
-    for pano in os.listdir(os.path.join(args.input_dir, 'reoriented')):
+    for pano in os.listdir(reoriented_path):
         if pano.split('.')[0] not in reoriented_list:
-            os.remove(os.path.join(args.input_dir, 'reoriented', pano))
-    new_len_folder = len(os.listdir(os.path.join(args.input_dir, 'reoriented')))
+            os.remove(reoriented_path, pano)
+    new_len_folder = len(os.listdir(reoriented_path))
     print(f'After filtering, there are now {new_len_folder} reoriented images in the folder')
 
 def save_hq_panos(args):

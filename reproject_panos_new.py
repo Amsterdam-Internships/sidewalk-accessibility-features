@@ -138,7 +138,7 @@ def reproject_panos(args):
         df = pd.DataFrame(panos, columns=['pano_id'])
 
     # Save the DataFrame to the .csv file
-    df_path = os.path.join({args.output_dir}, csv_file)
+    df_path = os.path.join(os.path.dirname(args.input_dir), csv_file)
     df.to_csv(df_path, index=False)
 
     print(f"Reprojected panos saved to '{df_path}'.")

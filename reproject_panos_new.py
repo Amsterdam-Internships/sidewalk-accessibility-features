@@ -151,13 +151,11 @@ def main(args):
     # Replace everything that is not a character with an underscore in neighbourhood string, and make it lowercase
     args.neighbourhood = re.sub(r'[^a-zA-Z]', '_', args.neighbourhood).lower()
 
-    print(f'Input directory: {args.input_dir}')
+    print(f'Input directory (with the reoriented folder): {args.input_dir}')
+    print(f'Reoriented directory: {args.reoriented_dir}')
     print(f'Output directory: {args.output_dir}')
 
     reproject_panos(args)
-
-    # After reorienting and reprojecting the panos, we need to reorient and reproject the labels too.
-    reproject_labels(args)
 
 
 if __name__ == '__main__':

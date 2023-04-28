@@ -19,76 +19,6 @@ import requests
 import geopandas as gpd
 import shutil
 
-'''TODO: Move the function in utils.py'''
-def get_ps_labels(args):
-
-    base_url = "https://sidewalk-amsterdam.cs.washington.edu/v2/access/attributesWithLabels?lat1={}&lng1={}&lat2={}&lng2={}" 
-    
-    whole = (52.303, 4.8, 52.425, 5.05)
-    centrum_west = (52.364925, 4.87444, 52.388692, 4.90641)
-    test = (52.0, 4.0, 53.0, 5.0)
-
-    coords = test
-
-    url = base_url.format(*coords)
-
-    label_dump = os.path.join(args.label_dump, 'attributesWithLabels')
-
-    try:
-        project_sidewalk_labels = json.load(open(label_dump, 'r'))
-    except Exception as e:
-        print("Couldn't load local dump")
-        project_sidewalk_labels = requests.get(url.format(*coords)).json()
-        json.dump(project_sidewalk_labels, open(label_dump, 'w'))
-
-    ps_labels_df = gpd.GeoDataFrame.from_features(project_sidewalk_labels['features'])
-    # Print length before filtering
-    print('Length of labels from attributesWithLabels API: ', len(ps_labels_df))
-
-    return ps_labels_df
-
-'''TODO: Move the function in utils.py'''
-def get_xy_coords_ps_labels():
-    # Send a get call to this API: https://sidewalk-amsterdam-test.cs.washington.edu/adminapi/labels/cvMetadata
-    other_labels = requests.get('https://sidewalk-amsterdam.cs.washington.edu/adminapi/labels/cvMetadata').json()
-    other_labels_df = pd.DataFrame(other_labels)
-    print('Length raw labels from cvMetadata API (low quality) : ', len(other_labels_df))
-
-    return other_labels_df
-
-def move_panos_to_root(input_dir):
-    '''Move the panos from the subfolders to the root of the folder.'''
-    # Loop through each folder in the source folder
-    counter = 0
-    print(f'Moving panos to root of {input_dir}...')
-    for foldername in tqdm(os.listdir(input_dir)):
-        folderpath = os.path.join(input_dir, foldername)
-
-        # Skip any non-folder items in the source folder and any folders which name contains
-        # reoriented, reprojected, masks, backprojected, evaluation, ground_seg_outputs
-        if not os.path.isdir(folderpath) or any(x in foldername for x in ['reoriented', \
-                'reprojected', 'masks', 'backprojected', 'evaluation', 'ground_seg_outputs']):
-            continue
-
-        # Loop through each file in the folder
-        for filename in os.listdir(folderpath):
-
-            # Skip any non-image files
-            if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
-                continue
-
-            # Get the path of the pano
-            pano_path = os.path.join(folderpath, filename)
-
-            # Move the pano to the root of the folder
-            os.rename(pano_path, os.path.join(input_dir, filename))
-            counter += 1
-
-        # Delete the folder where the pano was located
-        os.rmdir(folderpath)
-    print(f'Moved {counter} panos to root of {input_dir}.')
-    print('Done!')
-
 '''Credits to Project Sidewealk for the following function:
 https://github.com/ProjectSidewalk/sidewalk-panorama-tools/blob/master/DownloadRunner.py#L166'''
 def fetch_pano_ids_from_webserver():
@@ -130,6 +60,40 @@ def fetch_pano_ids_from_webserver():
     #print(pano_info[:10])
     return pano_info
 
+
+def move_panos_to_root(input_dir):
+    '''Move the panos from the subfolders to the root of the folder.'''
+    # Loop through each folder in the source folder
+    counter = 0
+    print(f'Moving panos to root of {input_dir}...')
+    for foldername in tqdm(os.listdir(input_dir)):
+        folderpath = os.path.join(input_dir, foldername)
+
+        # Skip any non-folder items in the source folder and any folders which name contains
+        # reoriented, reprojected, masks, backprojected, evaluation, ground_seg_outputs
+        if not os.path.isdir(folderpath) or any(x in foldername for x in ['reoriented', \
+                'reprojected', 'masks', 'backprojected', 'evaluation', 'ground_seg_outputs']):
+            continue
+
+        # Loop through each file in the folder
+        for filename in os.listdir(folderpath):
+
+            # Skip any non-image files
+            if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+                continue
+
+            # Get the path of the pano
+            pano_path = os.path.join(folderpath, filename)
+
+            # Move the pano to the root of the folder
+            os.rename(pano_path, os.path.join(input_dir, filename))
+            counter += 1
+
+        # Delete the folder where the pano was located
+        os.rmdir(folderpath)
+    print(f'Moved {counter} panos to root of {input_dir}.')
+    print('Done!')
+
 def resize_panos(args):
     size = (args.pano_width, args.pano_height)
     print(f'Resizing panos in {args.input_dir} to {size}...')
@@ -146,10 +110,10 @@ def resize_panos(args):
         if img.size == size:
             return
         resized_img = img.resize(size, Image.Resampling.LANCZOS)
-        if args.blacken:
+        '''if args.blacken:
             # Make 200px from the top and 100px from the bottom black
             resized_img.paste((0, 0, 0), (0, 0, size[0], 200))
-            resized_img.paste((0, 0, 0), (0, size[1] - 100, size[0], size[1]))
+            resized_img.paste((0, 0, 0), (0, size[1] - 100, size[0], size[1]))'''
 
         resized_img.save(pano_path)
 
@@ -242,6 +206,7 @@ def save_reoriented_panos(args):
     # Take the dirname of args.input_dir
     parent_dir = os.path.dirname(args.input_dir)
     reoriented_path = os.path.join(parent_dir, 'reoriented')
+    print(f'Reoriented_path: {reoriented_path}')
 
     # Collect the names of the images without the extension
     image_names = []
@@ -260,9 +225,9 @@ def save_reoriented_panos(args):
     filtered_df_panos = filtered_df_panos.drop_duplicates(subset=['pano_id'])
 
     # Save the filtered dataframe to a new .csv file in reoriented_path
-    filtered_df_panos.to_csv(f'{args.input_dir}/reoriented_panos.csv', index=False)
+    filtered_df_panos.to_csv(f'{reoriented_path}/reoriented_panos.csv', index=False)
 
-    print(f"reoriented_panos.csv saved in {args.input_dir}")
+    print(f"reoriented_panos.csv saved in {reoriented_path}")
 
 def remove_panos_without_metadata(args):
     # Take the dirname of args.input_dir

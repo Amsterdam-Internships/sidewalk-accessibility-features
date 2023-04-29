@@ -42,6 +42,18 @@ def resize_masks(args):
     print('Done!')
 
 def filter_masks(args):
+    '''The panos_info dictionary will have the following structure:
+        panos_info = {
+            'pano_id': {
+                'face_idx': {
+                    'masks': [...],
+                    'areas': [...],
+                    'centroids': [...]
+                },
+                ...
+            },
+            ...
+        }'''
     print('Applying connected component analysis and filtering...')
     directory = args.output_dir
     
@@ -53,18 +65,14 @@ def filter_masks(args):
         pano_masks_path = os.path.join(directory, pano)
         pano_masks = os.listdir(pano_masks_path)
 
-        # Initialize lists to store face indices, masks, areas, and centroids for the current pano
-        face_idxs = []
-        masks = []
-        areas = []
-        centroids_list = []
+        # Initialize a dictionary to store face indices, masks, areas, and centroids for the current pano
+        pano_data = {}
 
         for pano_mask in pano_masks:
             
             # Get the face index from the pano_mask filename
             face_name = os.path.splitext(pano_mask)[0]
             face_idx = reverse_map_faces(face_name)
-            face_idxs.append(face_idx)
 
             # Load the mask
             mask = cv2.imread(os.path.join(pano_masks_path, pano_mask), cv2.IMREAD_GRAYSCALE)
@@ -88,6 +96,11 @@ def filter_masks(args):
             # Your answer image
             filtered_mask = np.zeros((output.shape))
 
+            # Initialize lists to store masks, areas, and centroids for the current face index
+            masks = []
+            areas = []
+            centroids_list = []
+
             # For every component in the image, keep it only if it's above min_size
             for i in range(0, nb_components):
                 area = stats[i, cv2.CC_STAT_AREA]
@@ -97,13 +110,15 @@ def filter_masks(args):
                     areas.append(area)
                     centroids_list.append(centroids[i])
 
+            # Store the information for the current face index in the pano_data dictionary
+            pano_data[face_idx] = {
+                'masks': masks,
+                'areas': areas,
+                'centroids': centroids_list
+            }
+
         # Store the information for the current pano in the panos_info dictionary
-        panos_info[pano] = {
-            'face_idxs': face_idxs,
-            'masks': masks,
-            'areas': areas,
-            'centroids': centroids_list
-        }
+        panos_info[pano] = pano_data
 
     print('Done!')
     return panos_info
@@ -111,8 +126,6 @@ def filter_masks(args):
 def save_masks(args, panos_info):
     directory = args.output_dir
 
-    # Make a .json file as a list of dictionaries,
-    # where each dictionary contains the pano_id and the mask
     # If input_coco_format.json exists, load it
     if os.path.exists(os.path.join(directory, 'input_coco_format.json')):
         with open(os.path.join(directory, 'input_coco_format.json'), 'r') as f:
@@ -128,41 +141,42 @@ def save_masks(args, panos_info):
     print('Number of panos before filtering:', len(panos))
 
     # Skip the ones we already processed
-    panos = [pano for pano in panos if pano not in [pano['pano_id']
-                                                    for pano in input_coco_format]]
+    panos = [pano for pano in panos if pano not in [pano['pano_id'] for pano in input_coco_format]]
     # Print number of panos after filtering
     print('Number of panos after filtering:', len(panos))
 
     def process_pano(pano):
-        print('Processing panorama', pano)
+        #print('Processing panorama', pano)
 
         # Check if there are less than 4 unique face indices.
         # If so, skip this panorama and save pano in a new .csv
-        unique_faces = len(set(panos_info[pano]['face_idxs']))
+        unique_faces = len(set(panos_info[pano].keys()))
         if unique_faces < 4:
             print('Less than 4 unique face indices found, skipping panorama')
             with open(os.path.join(directory, f'incomplete_panos.csv'), 'a') as f:
                 f.write(f'{pano}\n')
             return
-        
-        # Load the masks, areas, centroids, and face indices
-        for pano_mask, area, centroid, face_idx in zip(panos_info[pano]['masks'],
-                                                    panos_info[pano]['areas'],
-                                                    panos_info[pano]['centroids'],
-                                                    panos_info[pano]['face_idxs']):
 
-            # Convert the mask to RLE
-            rle = mask_util.encode(
-                np.array(pano_mask, order="F", dtype="uint8"))
+        # Iterate through each face_idx in the pano
+        for face_idx in panos_info[pano]:
+            face_data = panos_info[pano][face_idx]
 
-            # Decode rle['counts'] to be able to save them in the json file
-            rle['counts'] = rle['counts'].decode('utf-8')
+            # Iterate through the masks, areas, and centroids for the current face_idx
+            for mask, area, centroid in zip(face_data['masks'], face_data['areas'], face_data['centroids']):
 
-            input_coco_format.append({'pano_id': pano,
-                                    'segmentation': rle,
-                                    'face_idx': face_idx,
-                                    'area': area,
-                                    'centroid': centroid.tolist()})
+                # Convert the mask to RLE
+                rle = mask_util.encode(np.array(mask, order="F", dtype="uint8"))
+
+                # Decode rle['counts'] to be able to save them in the json file
+                rle['counts'] = rle['counts'].decode('utf-8')
+
+                input_coco_format.append({
+                    'pano_id': pano,
+                    'face_idx': int(face_idx),
+                    'area': int(area),
+                    'centroid': [float(c) for c in centroid],  # Convert each element of centroid to float
+                    'segmentation': rle
+                })
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()

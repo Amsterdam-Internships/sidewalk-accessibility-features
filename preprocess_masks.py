@@ -5,7 +5,6 @@ import numpy as np
 from tqdm import tqdm
 import json
 import pycocotools.mask as mask_util
-import pandas as pd
 import concurrent.futures
 import psutil
 

@@ -43,7 +43,7 @@ def reorient_point(point, img_size, heading):
         pixel_split = int(img_size[1] * shift)
         
         y, x = point
-        new_x = (x - pixel_split) % img_size[0]
+        new_x = (x - pixel_split) % img_size[1]
 
         reoriented_point = (y, new_x)
         
@@ -53,25 +53,6 @@ def reorient_labels(args, dataframe):
     print('Reorienting labels...')
     # Retrieve pano.csv with headings information
     panos_df = pd.read_csv(args.panos_csv_path)
-
-    def reorient_point(point, img_size, heading):
-        # We select a tolerance of 0.1 degrees so that 
-        # the point is not reoriented if the heading is close to 0
-        tolerance = 0.1
-        if abs(heading) <= tolerance:
-            return point
-
-        else:
-            # Reshift point according to heading
-            shift = heading / 360
-            pixel_split = int(img_size[1] * shift)
-            
-            y, x = point
-            new_x = (x - pixel_split) % img_size[0]
-
-            reoriented_point = (y, new_x)
-            
-            return reoriented_point
 
     # panos_df contains the pano_id and the heading information, while the labels in dataframe contain
     # the pano id in the 'gsv_panorama_id' column. Find the heading for each label by matching the pano_id

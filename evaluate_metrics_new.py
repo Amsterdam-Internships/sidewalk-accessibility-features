@@ -15,6 +15,8 @@ import csv
 import random
 from collections import defaultdict
 from pprint import pprint
+import cv2
+import matplotlib.pyplot as plt
 
 def visualize_labels(args, gt_points, pano_id, path):
     # Load the image
@@ -201,13 +203,12 @@ def visualize_best_dilated(args, gt_points, pred_masks, best_gt_point_indices_li
     # Close the figure
     plt.close(fig)
 
-def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
+'''def mask_to_point_distance(masks, gt_points):
     distances = []
     points = []
     gt_indices = []
-    is_empty = False
 
-    for idx, pred_mask in enumerate(pred_masks):
+    for idx, pred_mask in enumerate(masks):
         if pred_mask.ndim == 2:  # Check if the mask is 2D
             mask_channel = pred_mask
         elif pred_mask.ndim == 3:  # Check if the mask is 3D
@@ -227,32 +228,17 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
             for gt_idx, gt_point in enumerate(gt_points):
                 point_coords = np.array(gt_point).reshape(1, -1)
                 dist = cdist(point_coords, mask_coords)
-                try:
-                    local_min_distance_idx = np.argmin(dist)
-                except:
-                    print('Mask is empty.')
-                    is_empty = True
-                    break
+                local_min_distance_idx = np.argmin(dist)
                 local_min_distance = dist[0, local_min_distance_idx]
                 local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
 
-                gt_part = get_image_part(gt_point[1])
-                local_closest_x_part = get_image_part(local_closest_x)
+                mask_distances.append(local_min_distance)
+                mask_points.append((local_closest_y, local_closest_x))
+                mask_gt_indices.append(gt_idx)
 
-                if gt_part == local_closest_x_part:
-                    mask_distances.append(local_min_distance)
-                    mask_points.append((local_closest_y, local_closest_x))
-                    mask_gt_indices.append(gt_idx)
-
-            # If there are no points in the same part, append a large distance and a dummy point
-            if len(mask_distances) > 0:
-                distances.append(mask_distances)
-                points.append(mask_points)
-                gt_indices.append(mask_gt_indices)
-            else:
-                distances.append([float('inf')])
-                points.append([(-1, -1)])
-                gt_indices.append([-1])
+            distances.append(mask_distances)
+            points.append(mask_points)
+            gt_indices.append(mask_gt_indices)
 
         else:
             # Compute the anchor point as the centroid of the mask coordinates
@@ -266,25 +252,107 @@ def mask_to_point_distance(gt_points, pred_masks, closest_point=True):
                 dist = cdist(point_coords, anchor_point.reshape(1, -1))  # Calculate distance to anchor_point
                 local_min_distance = dist[0, 0]
 
-                gt_part = get_image_part(gt_point[1])
-                anchor_point_part = get_image_part(anchor_point[1])
+                mask_distances.append(local_min_distance)
+                anchor_points.append(tuple(anchor_point))
+                mask_gt_indices.append(gt_idx)
 
-                if gt_part == anchor_point_part:
-                    mask_distances.append(local_min_distance)
-                    anchor_points.append(tuple(anchor_point))
-                    mask_gt_indices.append(gt_idx)
 
-            # If there are no points in the same part, append a large distance and a dummy point
-            if len(mask_distances) > 0:
-                distances.append(mask_distances)
-                points.append(anchor_points)
-                gt_indices.append(mask_gt_indices)
+            distances.append(mask_distances)
+            points.append(anchor_points)
+            gt_indices.append(mask_gt_indices)
+
+    return distances, points, gt_indices'''
+
+def mask_to_point_distance(pred_masks, gt_points, use_centroid=True):
+    closest_distances = []
+    anchor_distances = []
+    closest_points = []
+    anchor_points = []
+    mask_indices = []
+    gt_indices = []
+
+    for gt_idx, gt_point in enumerate(gt_points):
+        point_coords = np.array(gt_point).reshape(1, -1)
+
+        min_closest_distance = float('inf')
+        min_anchor_distance = float('inf')
+        closest_y, closest_x = None, None
+        best_anchor_point = None
+        best_mask_idx = None
+
+        for mask_idx, mask_dict in enumerate(pred_masks):
+            rle = mask_dict['segmentation']
+            mask_channel = mask_util.decode(rle)
+
+            mask_coords = np.where(mask_channel > 0)  # Get the indices of non-zero elements (i.e., the mask)
+            mask_coords = np.vstack(mask_coords).T  # Stack the mask indices into a 2D array
+
+            # Closest point distance
+            dist = cdist(point_coords, mask_coords)
+            local_min_distance_idx = np.argmin(dist)
+            local_min_distance = dist[0, local_min_distance_idx]
+            local_closest_y, local_closest_x = mask_coords[local_min_distance_idx]
+
+            # Anchor point distance
+            anchor_point = mask_dict['centroid']
+            anchor_dist = cdist(point_coords, np.array(anchor_point).reshape(1, -1))  # Calculate distance to anchor_point
+            local_anchor_distance = anchor_dist[0, 0]
+
+            if use_centroid:
+                if local_anchor_distance < min_anchor_distance:
+                    min_anchor_distance = local_anchor_distance
+                    best_anchor_point = anchor_point
+                    best_mask_idx = mask_idx
             else:
-                distances.append([float('inf')])
-                points.append([(-1, -1)])
-                gt_indices.append([-1])
+                if local_min_distance < min_closest_distance:
+                    min_closest_distance = local_min_distance
+                    closest_y, closest_x = local_closest_y, local_closest_x
+                    best_mask_idx = mask_idx
 
-    return distances, points, gt_indices, is_empty
+        if use_centroid:
+            anchor_distances.append(min_anchor_distance)
+            anchor_points.append(best_anchor_point)
+        else:
+            closest_distances.append(min_closest_distance)
+            closest_points.append((closest_y, closest_x))
+
+        mask_indices.append(best_mask_idx)
+        print(f'Area of the best mask {best_mask_idx}: {pred_masks[best_mask_idx]["area"]}')
+        gt_indices.append(gt_idx)
+
+    # Test: visualize the best masks
+    # Open image
+    path = '/var/scratch/lombardo/download_PS/reprojected/9VW3AUbKBdSPqnURnwRSLQ/left.png'
+    img = cv2.imread(path)
+    # Convert to RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    plt.imshow(img)
+    # Draw the best masks
+    for mask_idx, mask_dict in enumerate(pred_masks):
+        if mask_idx in mask_indices:
+            print(f'Mask {mask_idx}')
+            rle = mask_dict['segmentation']
+            mask_channel = mask_util.decode(rle)
+            plt.imshow(mask_channel, alpha=0.5)
+            # Visualize ground truth point
+            plt.scatter(gt_points[mask_indices.index(mask_idx)][1], gt_points[mask_indices.index(mask_idx)][0], c='r', s=7)
+            # Visualize closest point
+            if not use_centroid:
+                plt.scatter(closest_points[mask_indices.index(mask_idx)][1], closest_points[mask_indices.index(mask_idx)][0], c='g', s=7)
+            # Visualize closest anchor point
+            else:
+                plt.scatter(anchor_points[mask_indices.index(mask_idx)][1], anchor_points[mask_indices.index(mask_idx)][0], c='blue', s=7)
+    plt.savefig('test.png')
+    plt.close()
+
+
+
+    if use_centroid:
+        # Round the distances to the third decimal place
+
+        return np.round(anchor_distances, 3), anchor_points, mask_indices, gt_indices
+    else:
+        return np.round(closest_distances, 3), closest_points, mask_indices, gt_indices
 
 def mask_to_point_best_iou(gt_points, pred_masks, radius=5):
     best_ious = []
@@ -458,133 +526,155 @@ def average_precision_iou(best_ious, best_gt_point_indices, threshold):
 
     return ap
 
-def evaluate_single_batch(args, batch, other_labels_df, directory):
-    panos = {}
-    for instance in batch:
-        pano_id = instance['pano_id'].replace(".jpg", "")
-        mask = mask_util.decode(instance['segmentation'])
-        if pano_id not in panos:
-            panos[pano_id] = []
-        panos[pano_id].append(mask)
-
-    for pano in panos:
-        '''Assumptions: there is one ground truth for each mask, 
-        and the order of the masks is the same as the order of the ground truth indices.'''
-        if pano in other_labels_df["gsv_panorama_id"].values:
-            print(f"Evaluating {pano}...")
-            pred_masks = panos[pano]
-            n_masks = len(panos[pano])
-            print(f'Number of masks: {n_masks}')
-
-            # Compute label coordinates for pano
-            gt_points = compute_label_coordinates(args, other_labels_df, pano)
-
-            # Since we reoriented the panos, we need to apply the same reorientation to the ground truth points
-            # Find the heading of the pano in reoriented_panos.csv
-            reoriented_panos = pd.read_csv(os.path.join(os.path.dirname(args.input_dir), "reoriented_panos.csv"))
-            # Find the pano in the reoriented panos dataframe and take its heading
-            pano_heading = reoriented_panos[reoriented_panos["pano_id"] == pano]["heading"].values[0]
-
-            for i in range(len(gt_points)):
-                gt_points[i] = reorient_point(gt_points[i], (2000,1000), pano_heading)
-
-            # Since we padded the masks, we need to apply the same padding to the ground truth points
-            gt_points = shift_points(gt_points)
-
-            # Compute metrics
-            # Metrics 1: (average) mask-to-closest-point distance
-            cp_distances, cp_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
-            if is_empty:
-                continue
-            # Calculate mean distance between all masks and points, closest points only
-            # Exclude float('inf') values
-            cp_distances_filtered = [d for dist_list in cp_distances for d in dist_list if not np.isinf(d)]
-            cp_mean_distance = np.mean(cp_distances_filtered)
-
-            # Metrics 1.1: (average) mask-to-closest-anchor-point distance
-            ap_distances, ap_points, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
-            ap_distances_filtered = [d for dist_list in ap_distances for d in dist_list if not np.isinf(d)]
-            ap_mean_distance = np.mean(ap_distances_filtered)
-
-            # Metrics 2: point-to-mask best IoU
-            # Exclude -1 values
-            best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
-            best_ious_filtered = [iou for iou_list in best_ious for iou in iou_list if iou != -1]
-            mean_ious = np.mean(best_ious_filtered)
-
-            # Filter valid quadruples based on gt_indices
-            valid_cp_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, cp_distances, cp_points, cp_gt_indices)
-                    for d, p, i in zip(
-                        dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
-                        point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
-                        idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
-                    ) if i != -1]
-
-            valid_ap_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, ap_distances, ap_points, ap_gt_indices)
-                                for d, p, i in zip(
-                                    dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
-                                    point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
-                                    idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
-                                ) if i != -1]
-
-            valid_iou_triples = [(m, iou, i) for m, iou_list, idx_list in zip(pred_masks, best_ious, best_gt_point_indices)
-                                for iou, i in zip(
-                                    iou_list if isinstance(iou_list, (list, np.ndarray)) else [iou_list],
-                                    idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
-                                ) if i != -1]
-
-            # Extract valid masks, distances, points, and gt_indices
-            valid_cp_masks, valid_cp_distances, valid_closest_points, valid_cp_gt_indices = zip(*valid_cp_quadruples)
-            valid_ap_masks, valid_ap_distances, valid_closest_anchors, valid_ap_gt_indices = zip(*valid_ap_quadruples)
-            valid_iou_masks, valid_best_ious, valid_best_gt_point_indices = zip(*valid_iou_triples)
-
-            # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
-            cp_precision, cp_recall, cp_f1 = precision_recall_f1(valid_cp_distances, valid_cp_gt_indices, args.threshold)
-            # Metrics 3.1: Precision, Recall, F1 (already uses anchor_points based on point-to-mask distance)
-            ap_precision, ap_recall, ap_f1 = precision_recall_f1(valid_ap_distances, valid_ap_gt_indices, args.threshold)
-            # Metrics 4: Average precision based on point-to-mask distance
-            cp_ap = average_precision(valid_cp_distances, valid_cp_gt_indices, args.threshold)
-            # Metrics 4.1: Average precision based on point-to-mask distance
-            ap_ap = average_precision(valid_ap_distances, valid_ap_gt_indices, args.threshold)
-            # Metrics 5: Average precision @50 and @75 based on IoU
-            ap_50 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.5)
-            ap_75 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.75)
-                    
-            # Save metrics to .csv file, adding as first column the panorama ID. Add header
-            metrics = [pano, cp_mean_distance, ap_mean_distance, mean_ious, \
-                       cp_precision, ap_precision, cp_recall, ap_recall, \
-                        cp_f1, ap_f1, cp_ap, ap_ap, ap_50, ap_75]
-            with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
-                writer = csv.writer(f)
-                # If the first row contains the header, don't write it again
-                if os.stat(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv')).st_size == 0:
-                    writer.writerow(['pano_id', 'avg_cp_distance', 'avg_ap_distance', \
-                                    'avg_iou', 'cp_precision', 'ap_precision', \
-                                    'cp_recall', 'ap_recall', 'cp_f1', 'ap_f1', \
-                                    'cp_ap', 'ap_ap', 'ap50', 'ap75'])
-                writer.writerow(metrics)
-
-            if args.visualize:
-                # Probability of visualization: 10% of the panos
-                if random.random() >= 0.1:
-                    continue
+def evaluate_single_face(masks, labels_df, directory):
+    '''Access the list of dictionaries masks for the current pano and face. The structure is the following:
+    masks = [
+                {
+                'pano_id': 'pano_id_0',
+                'face_idx': 'face_idx_0',
+                'area': 'area',
+                'centroid': [x, y],
+                'segmentation': {
+                    'size': [height, width],
+                    'counts': 'RLE'
+                    },
+                },
+                {...}, {...}, ...
+            ]
+    '''
+    # Traverse masks list, check ['segmentation']['counts'], decode it and check if it's the same as the next one in the list
+    for i in range(len(masks)):
+        mask = masks[i]
+        # Decode RLE
+        mask_decoded = mask_util.decode(mask['segmentation'])
+        # Check if the current mask is the same as the next one
+        if i < len(masks) - 1:
+            next_mask = masks[i + 1]
+            next_mask_decoded = mask_util.decode(next_mask['segmentation'])
+            if np.array_equal(mask_decoded, next_mask_decoded):
+                print(f"Mask {i} and mask {i + 1} are the same")
+                # Check if their areas are also the same
+                if mask['area'] == next_mask['area']:
+                    print(f"Mask {i} and mask {i + 1} have the same area")
                 else:
-                    visualization_path = os.path.join(directory, 'visualized')
-                    print(f'Visualization of pano {pano} with threshold=', args.threshold, ' and radius=', args.radius, '')
-                    # Make a folder 'visualized' if not present
-                    if not os.path.exists(visualization_path):
-                        os.makedirs(visualization_path)
-                    # Make a folder for the pano
-                    pano_path = os.path.join(visualization_path, pano)
-                    if not os.path.exists(pano_path):
-                        os.makedirs(pano_path)
-                    visualize_labels(args, gt_points, pano, pano_path) # visualize labels and masks on pano
-                    visualize_debug_mask(gt_points, valid_cp_masks, \
-                                        valid_closest_points, valid_cp_gt_indices, pano, pano_path, True) # metrics 1
-                    visualize_debug_mask(gt_points, valid_ap_masks, \
-                                        valid_closest_anchors, valid_ap_gt_indices, pano, pano_path, False) # metrics 1.1
-                    visualize_best_dilated(args, gt_points, valid_iou_masks, valid_best_gt_point_indices, \
-                                            pano, pano_path) # metrics 2
+                    print(f"BUT...Mask {i} and mask {i + 1} have different areas")
+            else:
+                print(f"Mask {i} and mask {i + 1} are different")
+    pano_id = masks[0]['pano_id']
+    face_idx = masks[0]['face_idx']
+    print(pano_id)
+    return
+    # Load ground truth points knowing that the coordinates are (reprojected_pano_y,reprojected_pano_x)
+    gt_points = []
+    for idx, row in labels_df.iterrows():
+            if row['gsv_panorama_id'] == pano_id and row['face_idx'] == face_idx:
+                gt_points.append([row['reprojected_pano_y'], row['reprojected_pano_x']])
+    print(f"Number of ground truth points: {len(gt_points)}")
+    print(f"Ground truth points: {gt_points}")
+    
+    # Compute metrics
+    # Metrics 1: (average) mask-to-point distance
+    closest_distances, closest_points, mask_indices, gt_indices = mask_to_point_distance(masks, gt_points, True)
+    print(f"Closest distances: {closest_distances}, Closest points: {closest_points}, Closest masks: {mask_indices}," \
+            f"GT indices related to the closest masks: {gt_indices}")
+    #anchor_distances, anchor_points, mask_indices, gt_indices = mask_to_point_distance(masks, gt_points, True)
+    #print(f"Anchor distances: {anchor_distances}, Anchor points: {anchor_points}, Anchor masks: {mask_indices}," \
+    #        f"GT indices related to the anchor masks: {gt_indices}")
+
+    '''# Compute metrics
+    # Metrics 1: (average) mask-to-closest-point distance
+    cp_distances, cp_points, cp_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, True)
+    if is_empty:
+        continue
+    # Calculate mean distance between all masks and points, closest points only
+    # Exclude float('inf') values
+    cp_distances_filtered = [d for dist_list in cp_distances for d in dist_list if not np.isinf(d)]
+    cp_mean_distance = np.mean(cp_distances_filtered)
+
+    # Metrics 1.1: (average) mask-to-closest-anchor-point distance
+    ap_distances, ap_points, ap_gt_indices, is_empty = mask_to_point_distance(gt_points, pred_masks, False)
+    ap_distances_filtered = [d for dist_list in ap_distances for d in dist_list if not np.isinf(d)]
+    ap_mean_distance = np.mean(ap_distances_filtered)
+
+    # Metrics 2: point-to-mask best IoU
+    # Exclude -1 values
+    best_ious, best_gt_point_indices = mask_to_point_best_iou(gt_points, pred_masks, radius=100)
+    best_ious_filtered = [iou for iou_list in best_ious for iou in iou_list if iou != -1]
+    mean_ious = np.mean(best_ious_filtered)
+
+    # Filter valid quadruples based on gt_indices
+    valid_cp_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, cp_distances, cp_points, cp_gt_indices)
+            for d, p, i in zip(
+                dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
+                point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
+                idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+            ) if i != -1]
+
+    valid_ap_quadruples = [(m, d, p, i) for m, dist_list, point_list, idx_list in zip(pred_masks, ap_distances, ap_points, ap_gt_indices)
+                        for d, p, i in zip(
+                            dist_list if isinstance(dist_list, (list, np.ndarray)) else [dist_list],
+                            point_list if isinstance(point_list, (list, np.ndarray)) else [point_list],
+                            idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+                        ) if i != -1]
+
+    valid_iou_triples = [(m, iou, i) for m, iou_list, idx_list in zip(pred_masks, best_ious, best_gt_point_indices)
+                        for iou, i in zip(
+                            iou_list if isinstance(iou_list, (list, np.ndarray)) else [iou_list],
+                            idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list]
+                        ) if i != -1]
+
+    # Extract valid masks, distances, points, and gt_indices
+    valid_cp_masks, valid_cp_distances, valid_closest_points, valid_cp_gt_indices = zip(*valid_cp_quadruples)
+    valid_ap_masks, valid_ap_distances, valid_closest_anchors, valid_ap_gt_indices = zip(*valid_ap_quadruples)
+    valid_iou_masks, valid_best_ious, valid_best_gt_point_indices = zip(*valid_iou_triples)
+
+    # Metrics 3: Precision, Recall, F1 (already uses closest_points based on point-to-mask distance)
+    cp_precision, cp_recall, cp_f1 = precision_recall_f1(valid_cp_distances, valid_cp_gt_indices, args.threshold)
+    # Metrics 3.1: Precision, Recall, F1 (already uses anchor_points based on point-to-mask distance)
+    ap_precision, ap_recall, ap_f1 = precision_recall_f1(valid_ap_distances, valid_ap_gt_indices, args.threshold)
+    # Metrics 4: Average precision based on point-to-mask distance
+    cp_ap = average_precision(valid_cp_distances, valid_cp_gt_indices, args.threshold)
+    # Metrics 4.1: Average precision based on point-to-mask distance
+    ap_ap = average_precision(valid_ap_distances, valid_ap_gt_indices, args.threshold)
+    # Metrics 5: Average precision @50 and @75 based on IoU
+    ap_50 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.5)
+    ap_75 = average_precision_iou(valid_best_ious, valid_best_gt_point_indices, threshold=0.75)
+            
+    # Save metrics to .csv file, adding as first column the panorama ID. Add header
+    metrics = [pano, cp_mean_distance, ap_mean_distance, mean_ious, \
+                cp_precision, ap_precision, cp_recall, ap_recall, \
+                cp_f1, ap_f1, cp_ap, ap_ap, ap_50, ap_75]
+    with open(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'), 'a') as f:
+        writer = csv.writer(f)
+        # If the first row contains the header, don't write it again
+        if os.stat(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv')).st_size == 0:
+            writer.writerow(['pano_id', 'avg_cp_distance', 'avg_ap_distance', \
+                            'avg_iou', 'cp_precision', 'ap_precision', \
+                            'cp_recall', 'ap_recall', 'cp_f1', 'ap_f1', \
+                            'cp_ap', 'ap_ap', 'ap50', 'ap75'])
+        writer.writerow(metrics)
+
+    if args.visualize:
+        # Probability of visualization: 10% of the panos
+        if random.random() >= 0.1:
+            continue
+        else:
+            visualization_path = os.path.join(directory, 'visualized')
+            print(f'Visualization of pano {pano} with threshold=', args.threshold, ' and radius=', args.radius, '')
+            # Make a folder 'visualized' if not present
+            if not os.path.exists(visualization_path):
+                os.makedirs(visualization_path)
+            # Make a folder for the pano
+            pano_path = os.path.join(visualization_path, pano)
+            if not os.path.exists(pano_path):
+                os.makedirs(pano_path)
+            visualize_labels(args, gt_points, pano, pano_path) # visualize labels and masks on pano
+            visualize_debug_mask(gt_points, valid_cp_masks, \
+                                valid_closest_points, valid_cp_gt_indices, pano, pano_path, True) # metrics 1
+            visualize_debug_mask(gt_points, valid_ap_masks, \
+                                valid_closest_anchors, valid_ap_gt_indices, pano, pano_path, False) # metrics 1.1
+            visualize_best_dilated(args, gt_points, valid_iou_masks, valid_best_gt_point_indices, \
+                                    pano, pano_path) # metrics 2'''
 
 def evaluate(args, directory):
 
@@ -600,35 +690,89 @@ def evaluate(args, directory):
 
     # Load masks from .json file
     '''The panos_info dictionary will have the following structure:
-        panos_info = {
-            'pano_id': {
-                'face_idx': {
-                    'masks': [...],
-                    'areas': [...],
-                    'centroids': [...]
+        panos_info = [
+                {
+                'pano_id': {
+                    'face_idx': {
+                        'masks': [...],
+                        'areas': [...],
+                        'centroids': [...]
+                    },
+                    ...
                 },
                 ...
-            },
-            ...
-        }'''
+            }
+        ]'''
     json_path = os.path.join(args.masks_dir, 'input_coco_format.json')
     with open(json_path) as f:
         panos_info = json.load(f)
 
-    # Count number of panos (panos_info['pano_id'])
-    num_panoramas = len(panos_info.keys())
+    # Count number of unique panos (pano is a dictionary)
+    pano_ids = set(pano['pano_id'] for pano in panos_info)
+    num_panoramas = len(pano_ids)
     print(f'Number of panos: {num_panoramas}')
     # Count number of masks (panos_info['pano_id']['face_idx']['masks'])
-    num_masks = 0
-    for pano_id in panos_info.keys():
-        for face_idx in panos_info[pano_id].keys():
-            num_masks += len(panos_info[pano_id][face_idx]['masks'])
-    print(f'Number of masks: {num_masks}')
+    print(f'Number of masks: {len(panos_info)}')
 
+    '''The structure of grouped_panos will be:
+    grouped_panos = {
+        'pano_id_0': {
+            'face_idx_0': [
+                {
+                    'pano_id': 'pano_id_0',
+                    'face_idx': 'face_idx_0',
+                    'area': 'area',
+                    'centroid': [x, y],
+                    'segmentation': {
+                        'size': [height, width],
+                        'counts': 'RLE'
+                        },
+                },
+                {...},
+                ...
+            ]
+            'face_idx_1': [...],
+            ...
+        },
+        'pano_id_1': {}
+        ...
+    }'''
+    grouped_panos = {}
+    for pano in panos_info:
+        pano_id = pano['pano_id']
+        face_idx = pano['face_idx']
 
-    '''evaluate_single_batch(args, data_batch, other_labels_df, directory)
-            
-    # Open the .csv file, make it a dataframe, calculate the average of each column,
+        if pano_id not in grouped_panos:
+            grouped_panos[pano_id] = {}
+
+        if face_idx not in grouped_panos[pano_id]:
+            grouped_panos[pano_id][face_idx] = []
+
+        grouped_panos[pano_id][face_idx].append(pano)
+
+    # Evaluate each panorama's masks
+    for pano_id in tqdm(grouped_panos):
+        print(f'Processing pano {pano_id}:')
+        for face_idx in grouped_panos[pano_id]:
+            # Check that the face has masks
+            if len(grouped_panos[pano_id][face_idx]) == 0:
+                print(f'Face {face_idx} has no masks. Skipping...')
+                continue
+
+            # Check if the face has labels
+            if not labels_df[(labels_df['gsv_panorama_id'] == pano_id) & (labels_df['face_idx'] == face_idx)].empty:
+                print(f'Number of masks for face {face_idx}: {len(grouped_panos[pano_id][face_idx])}')
+                n_labels = len(labels_df[(labels_df["gsv_panorama_id"] == pano_id) & (labels_df["face_idx"] == face_idx)])
+                print(f'Number of labels for face {face_idx}: {n_labels}')
+                masks = grouped_panos[pano_id][face_idx]
+                evaluate_single_face(masks, labels_df, directory)
+                break
+            else:
+                print(f'Face {face_idx} has no labels. Skipping...')
+        break
+    
+    # Calculate average metrics
+    '''# Open the .csv file, make it a dataframe, calculate the average of each column,
     # and save it to a new .csv file
     metrics_df = pd.read_csv(os.path.join(directory, f'metrics_{args.threshold}_{args.radius}.csv'))
 

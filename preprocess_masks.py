@@ -104,8 +104,9 @@ def filter_masks(args):
             for i in range(0, nb_components):
                 area = stats[i, cv2.CC_STAT_AREA]
                 if area >= min_size:
-                    filtered_mask[output == i] = 255
-                    masks.append(filtered_mask)
+                    component_mask = np.zeros((output.shape))  # Create a new mask for the current component
+                    component_mask[output == i] = 255
+                    masks.append(component_mask)  # Append the new mask to the list
                     areas.append(area)
                     centroids_list.append(centroids[i])
 

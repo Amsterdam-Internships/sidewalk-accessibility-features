@@ -181,9 +181,6 @@ def visualize_best_iou_mask(args, faces, pano_id, masks, labels_df, directory):
             for masks_face_idx, masks_list in masks.items():
                 if masks_face_idx == int(face_idx):
                     for m_idx, mask_dict in enumerate(masks_list):
-                        # TODO: Remove after next evaluation (we fix -1 error)
-                        if mask_idx == -1:
-                            mask_idx = 0
                         if m_idx == mask_idx:
                             rle = mask_dict['segmentation']
                             mask = mask_util.decode(rle)

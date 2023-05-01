@@ -174,6 +174,7 @@ def visualize_best_iou_mask(args, faces, pano_id, masks, labels_df, directory):
                     gt_points.append([row['reprojected_pano_y'], row['reprojected_pano_x']])
 
         # The mask index is in 'iou_indices'
+        first_iteration = True
         for idx, (mask_idx, gt_idx) in enumerate(zip(faces[face_idx]['iou_indices']['mask_indices'], faces[face_idx]['iou_indices']['gt_indices'])):
             # mask_idx is the index of the dictionary in masks where the mask is stored
             # Convert the dictionary values to a list
@@ -186,6 +187,9 @@ def visualize_best_iou_mask(args, faces, pano_id, masks, labels_df, directory):
                         if m_idx == mask_idx:
                             rle = mask_dict['segmentation']
                             mask = mask_util.decode(rle)
+                            if first_iteration:
+                                combined_gt_mask_dilated = np.zeros_like(mask, dtype=int)
+                                first_iteration = False
                             plt.imshow(mask)
                             break
             # Get the ground truth point
@@ -203,8 +207,11 @@ def visualize_best_iou_mask(args, faces, pano_id, masks, labels_df, directory):
             # Create a dilated mask by thresholding the distance matrix at the specified radius
             gt_mask_dilated = (distances <= args.radius).astype(int)
 
-            # Display the dilated ground truth mask
-            plt.imshow(gt_mask_dilated, alpha=0.5, cmap='gray', label='Dilated Ground Truth')
+            # Accumulate the dilated ground truth masks
+            combined_gt_mask_dilated |= gt_mask_dilated
+
+        # Visualize the combined_gt_mask_dilated
+        plt.imshow(combined_gt_mask_dilated, alpha=0.5, cmap='gray')
 
         # Set small tick labels
         plt.tick_params(axis='both', which='both', labelsize=6)
@@ -218,6 +225,7 @@ def visualize_best_iou_mask(args, faces, pano_id, masks, labels_df, directory):
         fig.savefig(os.path.join(directory, output_path), dpi=300, bbox_inches='tight')
         # Close the figure
         plt.close(fig)
+
 
 def mask_to_point_distance(pred_masks, gt_points, use_centroid=True):
     closest_distances = []

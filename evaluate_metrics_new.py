@@ -672,7 +672,7 @@ def evaluate(args, directory):
                 ...
             }
         ]'''
-    json_path = os.path.join(args.masks_dir, 'input_coco_format.json')
+    json_path = os.path.join(args.masks_dir, args.input_coco_format)
     with open(json_path) as f:
         panos_info = json.load(f)
 
@@ -930,7 +930,7 @@ def visualize(args, results, directory):
     labels_df = pd.read_csv(args.labels_csv_path)
 
     # Load masks from .json file
-    json_path = os.path.join(args.masks_dir, 'input_coco_format.json')
+    json_path = os.path.join(args.masks_dir, args.input_coco_format)
     with open(json_path) as f:
         panos_info = json.load(f)
 
@@ -1029,6 +1029,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default='res/dataset')
     parser.add_argument('--masks_dir', type=str, default='masks')
+    parser.add_argument('--input_coco_format', type=str, default='input_coco_format.json')
     parser.add_argument('--labels_csv_path', type=str, default='res/labels/labels.csv')
     parser.add_argument('--threshold', type=int, default=100, help='Threshold for distance-based metrics (in pixels)')
     parser.add_argument('--radius', type=int, default=100, help='Radius for point-to-mask best IoU (in pixels)')

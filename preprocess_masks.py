@@ -33,6 +33,10 @@ def resize_masks(args):
             # Load the mask
             mask = cv2.imread(os.path.join(pano_masks_path, pano_mask), cv2.IMREAD_GRAYSCALE)
 
+            # Check if the mask is already the desired size
+            if mask.shape[0] == args.size and mask.shape[1] == args.size:
+                continue
+
             # Resize the mask
             mask = cv2.resize(mask, (args.size, args.size))
 
@@ -127,8 +131,8 @@ def save_masks(args, panos_info):
     directory = args.output_dir
 
     # If input_coco_format.json exists, load it
-    if os.path.exists(os.path.join(directory, 'input_coco_format.json')):
-        with open(os.path.join(directory, 'input_coco_format.json'), 'r') as f:
+    if os.path.exists(os.path.join(directory, f'input_coco_format_{args.threshold}.json')):
+        with open(os.path.join(directory, f'input_coco_format_{args.threshold}.json'), 'r') as f:
             input_coco_format = json.load(f)
     else:
         input_coco_format = []
@@ -188,7 +192,7 @@ def save_masks(args, panos_info):
         list(tqdm(executor.map(process_pano, panos), total=len(panos)))
         
     # Save input_coco_format
-    with open(os.path.join(directory, 'input_coco_format.json'), 'w') as f:
+    with open(os.path.join(directory, f'input_coco_format_{args.threshold}.json'), 'w') as f:
         json.dump(input_coco_format, f)
 
 def main(args):
@@ -197,6 +201,7 @@ def main(args):
         os.makedirs(args.output_dir)
 
     print('Input directory: ', args.input_dir)
+    print(f'Future input_coco_format name: input_coco_format_{args.threshold}.json')
     print('Output directory: ', args.output_dir)
 
     # 1. Resize masks to args.size x args.size

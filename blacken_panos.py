@@ -8,19 +8,36 @@ import argparse
 from tqdm import tqdm
 from scipy import ndimage
 
-def blacken_above_max_y(mask, image, buffer=10):
-    assert mask.shape == image.shape[:2], "Mask and image must have the same dimensions"
-    
-    # Compute the bounding box of the mask using ndimage
-    labeled_mask, num_labels = ndimage.label(mask)
-    if num_labels == 0:
+def blacken_above_max_y(image, mask, buffer=10, json_file=None):
+
+    if json_file is None:
         return image
-    
-    bounding_boxes = ndimage.find_objects(labeled_mask)
-    max_y = max([bb[0].stop for bb in bounding_boxes if bb is not None])
+
+    # Load the corresponding .json file
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+
+    # Load all the bounding boxes coordinates, background excluded
+    bounding_boxes = [item["box"] for item in data if item["label"] != "background"]
+
+    # Rescale the bounding boxes to image.shape
+    height, width = image.shape[:2]
+    source_height, source_width = mask.shape[:2]
+    rescaled_bounding_boxes = []
+    for bb in bounding_boxes:
+        rescaled_bb = [
+            bb[0] * (width / source_width),
+            bb[1] * (height / source_height),
+            bb[2] * (width / source_width),
+            bb[3] * (height / source_height),
+        ]
+        rescaled_bounding_boxes.append(rescaled_bb)
+
+    # Find the max_y among bounding boxes
+    max_y = max([bb[3] for bb in rescaled_bounding_boxes])
 
     # Blacken everything above max_y + buffer in the image
-    image[:max_y + buffer] = 0
+    image[:int(max_y) + buffer] = 0
     return image
 
 def blacken_panos(args):
@@ -41,17 +58,26 @@ def blacken_panos(args):
 
         # Traverse the faces
         for face_file in faces:
+    
             # Load the face
+            face_name = face_file.split('.')[0]
             face = cv2.imread(os.path.join(panos_path, face_file))
-            # Load the mask. First, check if the mask exists. If it doesn't, skip the pano
-            if not os.path.exists(os.path.join(args.masks_dir, pano, f'mask_{face_file}')):
-                print(f'Mask not found for {face_file}. Skipping...')
+            # Load the mask containing the bounding boxes. First, check if the file exists. 
+            # If it doesn't, skip the pano
+            mask_file = f'mask_{face_name}.jpg'
+            mask_path = os.path.join(args.masks_dir, pano, mask_file)
+            if not os.path.exists(mask_path):
+                print(f'Mask not found for {face_name}. Skipping...')
                 continue
-            mask = cv2.imread(os.path.join(args.masks_dir, pano, f'mask_{face_file}'), cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            # Load the json file containing the bounding boxes
+            json_file = f'mask_{face_name}.json'
+            json_path = os.path.join(args.masks_dir, pano, json_file)
             # Blacken everything above the max y of the mask + buffer
-            b_face = blacken_above_max_y(mask, face, args.buffer)
+            b_face = blacken_above_max_y(face, mask, args.buffer, json_path)
             # Save the face
             cv2.imwrite(os.path.join(args.output_dir, pano, face_file), b_face)
+        break
 
 def main(args):
     # Create the output directory if it doesn't exist

@@ -63,8 +63,11 @@ def filter_masks(args):
     # Initialize the dictionary to store panos information
     panos_info = {}
 
+    # Initialize list of panos (remove .json files)
+    panos_list = [pano for pano in os.listdir(directory) if not pano.endswith('.json')]
+
     # For each pano folder in args.output_dir, go through the masks, apply connected component analysis and filter the masks
-    for pano in tqdm(os.listdir(directory)):
+    for pano in tqdm(panos_list):
         pano_masks_path = os.path.join(directory, pano)
         pano_masks = os.listdir(pano_masks_path)
 

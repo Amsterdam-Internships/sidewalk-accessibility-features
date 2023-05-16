@@ -139,3 +139,4 @@ notebooks/unsupervised_test.ipynb
 debugging.ipynb
 .DS_Store
 .DS_Store
+*.csv

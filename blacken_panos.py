@@ -6,7 +6,8 @@ import numpy as np
 import json
 import argparse
 from tqdm import tqdm
-from scipy import ndimage
+import concurrent.futures
+import psutil
 
 def blacken_above_max_y(image, mask, buffer=10, json_file=None):
 
@@ -42,7 +43,9 @@ def blacken_above_max_y(image, mask, buffer=10, json_file=None):
 
 def blacken_panos(args):
     # Traverse the pano folders
-    for pano in tqdm(os.listdir(args.input_dir)):
+    panos = os.listdir(args.input_dir)
+
+    def process_pano(pano):
         panos_path = os.path.join(args.input_dir, pano)
         faces = os.listdir(panos_path)
 
@@ -54,7 +57,12 @@ def blacken_panos(args):
         # args.input_dir/pano is the same as the number of files inside args.output_dir/pano
         if len(os.listdir(panos_path)) == len(os.listdir(os.path.join(args.output_dir, pano))):
             print(f'{pano}: pano already processed. Skipping...')
-            continue
+            return
+
+        # Check if the masks directory contains the masks for this pano. If it doesn't, skip the pano
+        if not os.path.exists(os.path.join(args.masks_dir, pano)):
+            print(f'{pano}: masks not found. Skipping...')
+            return
 
         # Traverse the faces
         for face_file in faces:
@@ -73,11 +81,23 @@ def blacken_panos(args):
             # Load the json file containing the bounding boxes
             json_file = f'mask_{face_name}.json'
             json_path = os.path.join(args.masks_dir, pano, json_file)
+            if not os.path.exists(json_path):
+                print(f'Json file not found for {face_name}. Skipping...')
+                continue
             # Blacken everything above the max y of the mask + buffer
             b_face = blacken_above_max_y(face, mask, args.buffer, json_path)
             # Save the face
             cv2.imwrite(os.path.join(args.output_dir, pano, face_file), b_face)
-        break
+
+    # Calculate max_threads based on CPU capacity
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent()
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.5)
+
+    # Use ThreadPoolExecutor to limit the number of concurrent threads
+    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
+        list(tqdm(executor.map(process_pano, panos), total=len(panos)))
+        
 
 def main(args):
     # Create the output directory if it doesn't exist
@@ -91,6 +111,11 @@ def main(args):
 
     # 1. Resize masks to args.size x args.size
     blacken_panos(args)
+
+    # 2. Remove empty folders
+    for pano in os.listdir(args.output_dir):
+        if len(os.listdir(os.path.join(args.output_dir, pano))) == 0:
+            os.rmdir(os.path.join(args.output_dir, pano))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

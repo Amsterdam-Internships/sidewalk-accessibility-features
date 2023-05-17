@@ -1,3 +1,9 @@
+''' This script contains functions for evaluating the performance of the pipeline
+on a dataset of images. It includes functions for computing metrics such as precision, 
+recall, and F1 score, as well as functions for visualizing the results of the evaluation. 
+The script also includes functions for loading and processing the dataset, as well as 
+for mapping face indices to the corresponding faces.
+'''
 import json
 import numpy as np
 import os
@@ -397,13 +403,19 @@ def mask_to_point_best_iou(pred_masks, gt_points, radius=5):
         plt.close()'''
     return best_ious, best_mask_indices, gt_indices
 
-def precision_recall_f1(distances, gt_indices, threshold):
+def precision_recall_f1(n_masks, distances, gt_indices, threshold):
+    # Initialize counters
     true_positives = 0
-    false_positives = 0
+    # We initialize false_positives as the number of masks minus the number of distances
+    # as distances represents the closest masks to each ground truth point, so all the other masks
+    # are false positives by definition.
+    false_positives = n_masks-len(distances)
     false_negatives = 0
 
+    # Ensure distance_lists and gt_indices are the same length
     assert len(distances) == len(gt_indices)
 
+    # Keep track of ground truth indices that have been matched
     matched_gt_indices = set()
 
     for dist_list, idx_list in zip(distances, gt_indices):
@@ -428,12 +440,8 @@ def precision_recall_f1(distances, gt_indices, threshold):
     This metric is not used in object detection because such regions are not explicitly
     annotated when preparing the annotations.'''
 
-    # Deal with division by zero exception (true_positives + false_positives == 0 or true_positives + false_negatives == 0)
-    if true_positives + false_positives == 0:
-        precision = 0
-        recall = 0
-        f1_score = 0
-    elif true_positives + false_negatives == 0:
+    # Compute precision, recall, and F1 score
+    if true_positives + false_positives == 0 or true_positives + false_negatives == 0:
         precision = 0
         recall = 0
         f1_score = 0
@@ -445,12 +453,17 @@ def precision_recall_f1(distances, gt_indices, threshold):
         else:
             f1_score = 2 * (precision * recall) / (precision + recall)
 
-    # print(f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1-score: {f1_score:.3f}")
+    # Return precision, recall, and F1 score
     return precision, recall, f1_score
 
-def average_precision(distances, gt_indices, threshold):
+def average_precision(n_masks, distances, gt_indices, threshold):
     true_positives = []
     false_positives = []
+
+    # Append 1 in false_positives and 0 in true_positives for each mask in (n_masks-distances).
+    # Rationale: all the masks that are not in distances are false positives by definition. 
+    false_positives += [1] * (n_masks-len(distances))
+    true_positives += [0] * (n_masks-len(distances))
 
     all_gt_indices = {i for idx_list in gt_indices for i in (idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list])}
     n_gt_points = len(all_gt_indices)
@@ -489,7 +502,7 @@ def average_precision(distances, gt_indices, threshold):
 
     return ap
 
-def average_precision_iou(best_ious, best_gt_point_indices, threshold):
+def average_precision_iou(n_masks, best_ious, best_gt_point_indices, threshold):
     all_best_gt_indices = {i for idx_list in best_gt_point_indices for i in (idx_list if isinstance(idx_list, (list, np.ndarray)) else [idx_list])}
     num_gt_points = len(all_best_gt_indices)
 
@@ -502,6 +515,11 @@ def average_precision_iou(best_ious, best_gt_point_indices, threshold):
 
     tp = [1 if iou >= threshold else 0 for iou in sorted_best_ious]
     fp = [1 - t for t in tp]
+
+    # Add (n_masks - len(best_ious)) ones at the beginning of fp.
+    # Add (n_masks - len(best_ious)) zeros at the beginning of tp.
+    fp = [1] * (n_masks - len(best_ious)) + fp
+    tp = [0] * (n_masks - len(best_ious)) + tp  
 
     tp_cumsum = np.cumsum(tp)
     fp_cumsum = np.cumsum(fp)
@@ -545,6 +563,8 @@ def evaluate_single_face(masks, labels_df, directory):
             if row['gsv_panorama_id'] == pano_id and row['face_idx'] == face_idx:
                 gt_points.append([row['reprojected_pano_y'], row['reprojected_pano_x']])
     print(f"Number of ground truth points: {len(gt_points)}")
+    n_masks = len(masks)
+    print(f'Number of masks: {n_masks}')
     print(f"Ground truth points: {gt_points}")
     
     # Compute metrics
@@ -554,14 +574,14 @@ def evaluate_single_face(masks, labels_df, directory):
     # Metrics 2: mask-to-(dilated) mask (IoU)
     best_ious, mask_indices_iou, gt_indices_iou = mask_to_point_best_iou(masks, gt_points, args.radius)
     # Metrics 3: Precision, Recall, F1
-    cp_precision, cp_recall, cp_f1 = precision_recall_f1(closest_distances, cp_gt_indices, args.threshold)
-    ap_precision, ap_recall, ap_f1 = precision_recall_f1(anchor_distances, ap_gt_indices, args.threshold)
+    cp_precision, cp_recall, cp_f1 = precision_recall_f1(n_masks, closest_distances, cp_gt_indices, args.threshold)
+    ap_precision, ap_recall, ap_f1 = precision_recall_f1(n_masks, anchor_distances, ap_gt_indices, args.threshold)
     # Metrics 4: Average Precision
-    cp_ap = average_precision(closest_distances, cp_gt_indices, args.threshold)
-    ap_ap = average_precision(anchor_distances, ap_gt_indices, args.threshold)
+    cp_ap = average_precision(n_masks, closest_distances, cp_gt_indices, args.threshold)
+    ap_ap = average_precision(n_masks, anchor_distances, ap_gt_indices, args.threshold)
     # Metrics 5: Average precision @50 and @75 based on IoU
-    ap50 = average_precision_iou(best_ious, gt_indices_iou, threshold=0.5)
-    ap75 = average_precision_iou(best_ious, gt_indices_iou, threshold=0.75)
+    ap50 = average_precision_iou(n_masks, best_ious, gt_indices_iou, threshold=0.5)
+    ap75 = average_precision_iou(n_masks, best_ious, gt_indices_iou, threshold=0.75)
 
     '''Structure of the output dictionary:
         results = {

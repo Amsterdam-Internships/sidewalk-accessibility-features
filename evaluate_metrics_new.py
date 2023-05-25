@@ -126,9 +126,6 @@ def visualize_closest_mask(args, faces, pano_id, masks, labels_df, directory, us
             # mask_idx is the index of the dictionary in masks where the mask is stored
             # Convert the dictionary values to a list
             for masks_face_idx, masks_list in masks.items():
-                # TODO: Remove after next evaluation (we fix -1 error)
-                if masks_face_idx == -1:
-                    masks_face_idx == 0
                 if masks_face_idx == int(face_idx):
                     for m_idx, mask_dict in enumerate(masks_list):
                         if m_idx == mask_idx:

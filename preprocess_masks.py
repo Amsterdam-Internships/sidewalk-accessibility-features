@@ -420,8 +420,7 @@ def filter_masks_by_masks(args, panos_info):
                 continue
 
             # Resize the sidewalk and make it binary
-            sidewalk_mask = cv2.resize(sidewalk_mask, (args.size, args.size))
-            _, sidewalk_mask = cv2.threshold(sidewalk_mask, 127, 255, cv2.THRESH_BINARY)
+            
 
             # Flag to indicate whether all masks are further than args.min_distance
             all_masks_far = True
@@ -432,9 +431,11 @@ def filter_masks_by_masks(args, panos_info):
                 # Ensure centroid is a numpy array
                 array_centroid = np.array(centroid)
                 # Reshape the centroid array to have two dimensions
-                array_centroid = centroid.reshape(1, -1)
+                array_centroid = array_centroid.reshape(1, -1)
                 
                 # Compute the minimum distance between the centroid of the mask and the fake_mask
+                # Invert array_centroid coordinates
+                array_centroid = np.flip(array_centroid)
                 min_distance = np.min(cdist(array_centroid, np.argwhere(sidewalk_mask == 255)))
                 
                 if min_distance < args.min_distance:

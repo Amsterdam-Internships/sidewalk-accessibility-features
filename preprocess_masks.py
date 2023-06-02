@@ -420,6 +420,8 @@ def filter_masks_by_masks(args, panos_info):
                 continue
 
             # Resize the sidewalk and make it binary
+            sidewalk_mask = cv2.resize(sidewalk_mask, (args.size, args.size))
+            _, sidewalk_mask = cv2.threshold(sidewalk_mask, 127, 255, cv2.THRESH_BINARY)
             
 
             # Flag to indicate whether all masks are further than args.min_distance

@@ -10,6 +10,7 @@ import psutil
 import sys
 import csv
 from scipy.spatial.distance import cdist
+import gc
 
 def reverse_map_faces(face):
     # Function that maps the face name to the corresponding index
@@ -18,6 +19,9 @@ def reverse_map_faces(face):
     return face_mapping.get(face)
 
 def map_faces(face_idx):
+    # Check if face_idx is a string. If so, convert to int
+    if isinstance(face_idx, str):
+        face_idx = int(face_idx)
     # Function that maps the face index to the corresponding name
     # Mapping: 0 -> 'front', 1 -> 'right', 2 -> 'back', 3 -> 'left', 4 -> 'top', 5 -> 'bottom'
     face_mapping = {0: 'front', 1: 'right', 2: 'back', 3: 'left', 4: 'top', 5: 'bottom'}
@@ -26,6 +30,42 @@ def map_faces(face_idx):
 def scale(original_size, new_size):
     # Function that calculates the scaling factor to resize the masks
     return new_size / original_size
+
+def save_pano_info(pano_info, pano, directory):
+    '''The pano_info dictionary has the following structure:
+    pano_info = {
+        'face_idx': {
+            'masks': [mask1, mask2, ...],
+            'areas': [area1, area2, ...],
+            'centroids': [centroid1, centroid2, ...]
+            }
+        }'''
+    
+    # Before saving the pano information, convert the masks to RLE format
+    for face_idx in pano_info:
+        for i in range(len(pano_info[face_idx]['masks'])):
+            pano_info[face_idx]['masks'][i] = mask_util.encode(np.array(pano_info[face_idx]['masks'][i], order="F", dtype="uint8"))
+
+            pano_info[face_idx]['masks'][i]['counts'] = pano_info[face_idx]['masks'][i]['counts'].decode('utf-8')
+        # Make sure the areas are ints and centroids are lists of floats
+        # [float(c) for c in centroid]
+        # int(area)
+        pano_info[face_idx]['areas'] = [int(area) for area in pano_info[face_idx]['areas']]
+        pano_info[face_idx]['centroids'] = [[float(c) for c in centroid] for centroid in pano_info[face_idx]['centroids']]
+
+    # Save the pano information as a JSON file
+    with open(os.path.join(directory, f'{pano}_info.json'), 'w') as f:
+        json.dump(pano_info, f)
+
+def load_pano_info(directory):
+    panos_info = {}
+    json_files = [file for file in os.listdir(directory) if file.endswith('.json')]
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as f:
+            pano_info = json.load(f)
+        pano_id = os.path.splitext(json_file)[0].replace('_info', '')  # extract pano id from filename
+        panos_info[pano_id] = pano_info
+    return panos_info
 
 def load_masks(mask_list):
 
@@ -58,10 +98,11 @@ def load_masks(mask_list):
     return panos_info
 
 def fetch_fallback_info(fallback_masks, pano_id, face_idx):
-    #print('pano_id type:', type(pano_id))
-    #print('face_idx type:', type(face_idx))
+    '''print(f'=== WE ARE IN fetch_fallback_info() ===')
+    print('pano_id type:', type(pano_id))
+    print('face_idx type:', type(face_idx))
     # Check if all masks in fallback_masks are of the same type, and print the type
-    '''type_dict_bool = True
+    type_dict_bool = True
     for m in fallback_masks:
         if isinstance(m, dict):
             continue
@@ -71,10 +112,23 @@ def fetch_fallback_info(fallback_masks, pano_id, face_idx):
             print('Mask: ', m)
     print('Are all masks dictionaries: ', type_dict_bool)'''
 
+    # Convert face_idx to strings in fallback_masks
+    for m in fallback_masks:
+        m['face_idx'] = str(m['face_idx'])
+
     # Filter only relevant masks
-    filtered_masks = [m for m in fallback_masks if m['pano_id'] == pano_id and m['face_idx'] == face_idx]
+    filtered_masks = [m for m in fallback_masks if m['pano_id'] == pano_id and str(m['face_idx']) == face_idx]
 
     print(f'Found {len(filtered_masks)} fallback masks for pano {pano_id} and face {face_idx}.')
+
+    # Check if it's a problem of the face_idx
+    if len(filtered_masks) == 0:
+        filtered_masks_pano = [m for m in fallback_masks if m['pano_id'] == pano_id]
+        print(f'Found {len(filtered_masks_pano)} fallback masks for pano {pano_id}.')
+        # Print the type of the face_idx in filtered_masks_pano
+        for m in filtered_masks_pano:
+            print('in filtered_masks_pano, face_idx type:', type(m['face_idx']))
+            break
 
     # Convert these masks back to original dictionary format
     panos_info = load_masks(filtered_masks)
@@ -130,14 +184,16 @@ def filter_masks(args):
         }'''
     print('Applying connected component analysis and filtering...')
     directory = args.output_dir
-    
-    # Initialize the dictionary to store panos information
-    panos_info = {}
 
     # Initialize list of panos (remove .json and .csv files)
     panos_list = [pano for pano in os.listdir(directory) if not pano.endswith('.json') and not pano.endswith('.csv')]
 
-    def process_pano(pano):
+    # Make a new directory to store the .json files
+    json_path = os.path.join(directory, 'json_data')
+    if not os.path.exists(json_path):
+        os.makedirs(json_path, exist_ok=True)
+
+    def process_and_save_pano(pano):
         # For each pano folder in args.output_dir, go through the masks, apply connected component analysis and filter the masks
         pano_masks_path = os.path.join(directory, pano)
         pano_masks = os.listdir(pano_masks_path)
@@ -188,6 +244,9 @@ def filter_masks(args):
                     areas.append(area)
                     centroids_list.append(centroids[i])
 
+                    del component_mask
+                    gc.collect()
+
             # Store the information for the current face index in the pano_data dictionary
             pano_data[face_idx] = {
                 'masks': masks,
@@ -195,26 +254,35 @@ def filter_masks(args):
                 'centroids': centroids_list
             }
 
-        # Store the information for the current pano in the panos_info dictionary
-        panos_info[pano] = pano_data
+            # After processing each mask, explicitly delete the mask and call garbage collector
+            del mask, thresh, output, stats, centroids, filtered_mask
+            gc.collect()
+
+        # Save the information for the current pano
+        save_pano_info(pano_data, pano, json_path)
+        del pano_data
+        gc.collect()
 
     # Calculate max_threads based on CPU capacity
-    max_threads = psutil.cpu_count()
+    max_threads = min(8, psutil.cpu_count())  # Reduced number of max threads
+    print(f'Using {max_threads} threads')
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
-        list(tqdm(executor.map(process_pano, panos_list), total=len(panos_list))) 
+        list(tqdm(executor.map(process_and_save_pano, panos_list), total=len(panos_list)))
 
-    print(f'Number of panos: {len(panos_info)}')
     print('Done!')
-    return panos_info
 
-def filter_masks_by_bboxes(args, panos_info):
+def filter_masks_by_bboxes(args):
     '''Load the sidewalk bounding boxes from the corresponding .json file
     and filter the masks in panos_info that are not inside the bounding boxes.'''
     seg_dir = args.seg_dir
 
     print(f'Filtering masks by sidewalk bounding boxes...')
+
+    # Load panos_info
+    json_path_dir = os.path.join(args.output_dir, 'json_data')
+    panos_info = load_pano_info(json_path_dir)
 
     # Create a new panos_info dictionary with the same structure as the original one
     new_panos_info = {}
@@ -349,12 +417,16 @@ def filter_masks_by_bboxes(args, panos_info):
 
     return new_panos_info, no_sidewalk_bbox_list
 
-def filter_masks_by_masks(args, panos_info):
+def filter_masks_by_masks(args):
     '''Load the sidewalk masks from the corresponding .jpg file and filter the masks in panos_info
     which centroid is further than args.min_distance.'''
     seg_dir = args.seg_dir
 
     print(f'Filtering object masks by sidewalk masks...')
+
+    # Load panos_info
+    json_path_dir = os.path.join(args.output_dir, 'json_data')
+    panos_info = load_pano_info(json_path_dir)
 
     # Create a new panos_info dictionary with the same structure as the original one
     new_panos_info = {}
@@ -383,6 +455,8 @@ def filter_masks_by_masks(args, panos_info):
         pano_dir = os.path.join(seg_dir, pano_id)
 
         for face_idx in panos_info[pano_id]:
+            #print(f'=== WE ARE IN filter_masks_by_masks(), inside pano_id, face_idx loop ===')
+            #print(f'TYPE OF face_idx: {type(face_idx)}')
             # Load the sidewalk masks from the corresponding masks files
             # The masks we are interested in are called 'sidewalk_mask_{face_name}.jpg'
             # or 'sidewalkroad_mask_{face_name}.jpg'
@@ -430,6 +504,12 @@ def filter_masks_by_masks(args, panos_info):
             # Iterate over each mask in panos_info[pano_id][face_idx]['masks']
             for mask, area, centroid in zip(panos_info[pano_id][face_idx]['masks'], panos_info[pano_id][face_idx]['areas'], panos_info[pano_id][face_idx]['centroids']):
                 
+                # Decode the mask
+                rle = mask
+                mask = mask_util.decode(rle)
+                del rle
+                gc.collect()
+
                 # Ensure centroid is a numpy array
                 array_centroid = np.array(centroid)
                 # Reshape the centroid array to have two dimensions
@@ -439,6 +519,7 @@ def filter_masks_by_masks(args, panos_info):
                 # Invert array_centroid coordinates
                 array_centroid = np.flip(array_centroid)
                 min_distance = np.min(cdist(array_centroid, np.argwhere(sidewalk_mask == 255)))
+                #print(f'Minimum distance between centroid of mask and sidewalk mask: {int(min_distance)}')
                 
                 if min_distance < args.min_distance:
                     # Append the new mask, area, and centroid to the corresponding lists in the new_panos_info dictionary
@@ -448,13 +529,21 @@ def filter_masks_by_masks(args, panos_info):
                     # Since we found a mask that is closer than args.min_distance, set the flag to False
                     all_masks_far = False
 
+            #print(f'JUST A CHECK TO SEE IF face_idx is still str: {type(face_idx)}')
+
             if all_masks_far:
                 # If all masks are further than args.min_distance, append the pano_id and its face
+                print(f'All masks of {pano_id} and face {face_name} are further than {args.min_distance}. Using fallback masks of algorithm {args.fallback}...')
                 far_mask_list.append((pano_id, face_name))
                 # to far_mask_list and retain the original data in new_panos_info
                 # Copy the masks, areas, and centroids from panos_info (baseline) to new_panos_info if args.fallback is 0, otherwise use the fallback masks
                 if args.fallback == 1:
                     fallback_masks_dict = fetch_fallback_info(fallback_masks, pano_id, face_idx)
+
+                    #print(f'=== INSIDE if args.fallback == 1, check face_idx type: {type(face_idx)}')
+
+                    #print(f'new_panos_info[pano_id] keys: {new_panos_info[pano_id].keys()}')
+                    #print(f'fallback_masks_dict[pano_id] keys: {fallback_masks_dict[pano_id].keys()}')
                     
                     try:
                         new_panos_info[pano_id][face_idx]['masks'] = fallback_masks_dict[pano_id][face_idx]['masks']
@@ -534,25 +623,32 @@ def save_masks(args, panos_info):
 
             # Iterate through the masks, areas, and centroids for the current face_idx
             for mask, area, centroid in zip(face_data['masks'], face_data['areas'], face_data['centroids']):
+                
+                try:
+                    # Convert the mask to RLE
+                    rle = mask_util.encode(np.array(mask, order="F", dtype="uint8"))
 
-                # Convert the mask to RLE
-                rle = mask_util.encode(np.array(mask, order="F", dtype="uint8"))
+                    # Decode rle['counts'] to be able to save them in the json file
+                    rle['counts'] = rle['counts'].decode('utf-8')
 
-                # Decode rle['counts'] to be able to save them in the json file
-                rle['counts'] = rle['counts'].decode('utf-8')
+                    input_coco_format.append({
+                        'pano_id': pano,
+                        'face_idx': int(face_idx),
+                        'area': int(area),
+                        'centroid': [float(c) for c in centroid],  # Convert each element of centroid to float
+                        'segmentation': rle
+                    })
+                except TypeError:
+                    print(f'Pano {pano} face_idx {face_idx}')
+                    print(f'Mask: {mask}')
+                    print(f'Area: {area}')
+                    print(f'Centroid: {centroid}')
 
-                input_coco_format.append({
-                    'pano_id': pano,
-                    'face_idx': int(face_idx),
-                    'area': int(area),
-                    'centroid': [float(c) for c in centroid],  # Convert each element of centroid to float
-                    'segmentation': rle
-                })
 
     # Calculate max_threads based on CPU capacity
     cpu_count = psutil.cpu_count()
     cpu_percent = psutil.cpu_percent()
-    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.4)
+    max_threads = int((cpu_count * (1 - cpu_percent / 100)) * 0.5)
 
     # Use ThreadPoolExecutor to limit the number of concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
@@ -591,11 +687,15 @@ def main(args):
     resize_masks(args)
     
     # 2. Apply connected components + filtering
-    panos_info = filter_masks(args)
+    # Check if args.output_dir/json_data folder exists. If it does, skip filter_masks(args)
+    if not os.path.exists(os.path.join(args.output_dir, 'json_data')):
+        filter_masks(args)
+    else:
+        print('Masks already filtered. Skipping step 2...')
 
     # (Optional) 2.1 Apply algorithm 2 (filtering by sidewalk bounding boxes)
     if args.algorithm == 2:
-        panos_info, no_sidewalk_bbox_list = filter_masks_by_bboxes(args, panos_info)
+        panos_info, no_sidewalk_bbox_list = filter_masks_by_bboxes(args)
 
         # Save the list of pano_ids and face_idxs that do not have a sidewalk mask in a .csv file
         with open(os.path.join(args.output_dir, f'no_sidewalk_masks_pano_list.csv'), 'a') as f:
@@ -606,7 +706,7 @@ def main(args):
 
     # (Optional) 2.2 Apply algorithm 3 (filtering by sidewalk masks)
     if args.algorithm == 3:
-        panos_info, no_sidewalk_mask_list, far_mask_list = filter_masks_by_masks(args, panos_info)
+        panos_info, no_sidewalk_mask_list, far_mask_list = filter_masks_by_masks(args)
 
         # Only if 'no_sidewalk_masks_pano_list.csv' doesn't exist, 
         # save the list of pano_ids and face_idxs that do not have a sidewalk mask in a .csv file
